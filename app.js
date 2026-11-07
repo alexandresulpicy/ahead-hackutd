@@ -1,110 +1,19 @@
-// IDs du compte de test Nessie (non secrets)
-const CUSTOMER = 'b25d35fb-c5e7-4311-a81b-52a754262e90';
-const CH = 'ee0be6f8-275f-48fc-8843-995a05e11a59', SV = '4b98e589-8627-41a4-b2dd-acfed22513e3';
-const TODAY = new Date('2026-11-07'), DAY = 864e5, HORIZON = 45, OVERDRAFT_FEE = 36;
-const $ = id => document.getElementById(id);
-const usd = n => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
-const iso = d => d.toISOString().slice(0, 10);
-const nice = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Ahead — interface : écrans, graphique, onboarding, notification, coach
+const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1b7f8c"/><path d="M10 9l7 7-7 7M17 9l7 7-7 7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const TITLES = { today: 'Today', plan: 'Plan', coach: 'Coach', activity: 'Activity' };
+let view = 'today';
 
-// --- Couche données : Nessie via /api/nessie, repli sur données simulées (même histoire) ---
-async function nessie(path, method = 'GET', body) {
-  const r = await fetch('/api/nessie?path=' + encodeURIComponent(path), {
-    method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
-  if (!r.ok) throw new Error(r.status);
-  return r.json();
+function show(v) {
+  if (!TITLES[v]) v = 'today';
+  view = v;
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 'screen-' + v));
+  document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  $('title').textContent = TITLES[v];
+  try { history.replaceState(null, '', '#' + v); } catch {}
+  window.scrollTo(0, 0);
+  requestAnimationFrame(drawChart);
 }
-function demoData() { // miroir du compte Nessie : 90 jours de freelance, revenu irrégulier
-  let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-  const cats = [['Groceries', 30, 70, .30], ['Gas', 25, 45, .12], ['Eating out', 12, 30, .22], ['Coffee', 5, 9, .20], ['Equipment', 90, 220, .03]];
-  const purchases = [];
-  for (let i = 89; i >= 1; i--) cats.forEach(([n, lo, hi, p]) => { if (rnd() < p) purchases.push({ purchase_date: iso(new Date(+TODAY - i * DAY)), amount: lo + Math.floor(rnd() * (hi - lo + 1)), description: n }); });
-  return {
-    checking: 900, savings: 2500, debt: 640, purchases,
-    deposits: [['2026-08-14', 2400, 'Wedding film - Client B'], ['2026-08-28', 1600, 'Brand video - Client C'], ['2026-09-22', 300, 'Photo edit - Client D'],
-      ['2026-10-09', 1500, 'Product shoot - Client E'], ['2026-10-27', 700, 'Reel editing - Client F'], ['2026-11-01', 1200, 'Client payment - video shoot']]
-      .map(([transaction_date, amount, description]) => ({ transaction_date, amount, description })),
-    bills: [{ nickname: 'Rent', payment_amount: 850, payment_date: '2026-11-15', recurring_date: 15 }, { nickname: 'Phone', payment_amount: 60, payment_date: '2026-11-20', recurring_date: 20 },
-      { nickname: 'Software', payment_amount: 30, payment_date: '2026-12-05', recurring_date: 5 }],
-  };
-}
-let S = demoData(), live = false;
-
-async function load() {
-  try {
-    const [d, p, b, a] = await Promise.all([nessie(`/accounts/${CH}/deposits`), nessie(`/accounts/${CH}/purchases`), nessie(`/accounts/${CH}/bills`), nessie(`/customers/${CUSTOMER}/accounts`)]);
-    const by = t => a.find(x => x.type === t);
-    Object.assign(S, { deposits: d, purchases: p, bills: b, checking: by('Checking').balance, savings: by('Savings').balance, debt: by('Credit Card')?.balance || 0 });
-    live = true;
-  } catch { live = false; } // pas de proxy en local : démo simulée
-  $('mode').textContent = live ? 'Nessie live' : 'Simulated data';
-}
-
-// --- Modèle de revenu irrégulier : calculé sur l'historique des dépôts ---
-const quant = (arr, p) => { const a = [...arr].sort((x, y) => x - y), pos = p * (a.length - 1), lo = Math.floor(pos), hi = Math.ceil(pos); return a[lo] + (a[hi] - a[lo]) * (pos - lo); };
-function incomeModel() {
-  const ds = S.deposits.map(d => ({ t: Date.parse(d.transaction_date), amt: d.amount })).sort((a, b) => a.t - b.t);
-  const gaps = ds.slice(1).map((d, i) => (d.t - ds[i].t) / DAY), amts = ds.map(d => d.amt);
-  return {
-    since: Math.round((+TODAY - ds[ds.length - 1].t) / DAY),                       // jours depuis le dernier paiement
-    g: { cautious: Math.max(...gaps), expected: quant(gaps, .5), favorable: quant(gaps, .25) },  // délai entre paiements
-    a: { cautious: quant(amts, .25), expected: quant(amts, .5), favorable: quant(amts, .75) },   // montant d'un paiement
-    monthIncome: amts.reduce((s, x) => s + x, 0) / 3,
-  };
-}
-function dailySpend() { // dépense moyenne par jour sur 60 jours, d'après les achats Nessie
-  const from = +TODAY - 60 * DAY;
-  return S.purchases.filter(p => Date.parse(p.purchase_date) >= from).reduce((t, p) => t + p.amount, 0) / 60 || 28;
-}
-const billsOn = date => S.bills.filter(b => b.recurring_date ? b.recurring_date === +date.slice(8, 10) : b.payment_date === date);
-
-// Prévision d'un scénario ; `late` = semaines de retard du client (what-if)
-function forecast(scn, late = 0) {
-  const M = incomeModel(), spend = dailySpend();
-  const first = Math.max(scn === 'cautious' ? 2 : 1, Math.round(M.g[scn] - M.since)) + late * 7, gap = Math.max(3, Math.round(M.g[scn]));
-  let bal = S.checking; const out = [], bills = [], inc = [];
-  for (let i = 0; i <= HORIZON; i++) {
-    const date = iso(new Date(+TODAY + i * DAY));
-    if (i > 0) {
-      bal -= spend;
-      billsOn(date).forEach(b => { bal -= b.payment_amount; bills.push({ i, name: b.nickname, amt: b.payment_amount }); });
-      if (i >= first && (i - first) % gap === 0) { bal += M.a[scn]; inc.push(i); }
-    }
-    out.push({ i, date, bal });
-  }
-  return { out, bills, inc, first };
-}
-function metrics(late) {
-  const fe = forecast('expected', late), fc = forecast('cautious', late), ff = forecast('favorable', late), M = incomeModel();
-  // Le risque se mesure jusqu'au prochain paiement, même en retard (cas prudent) : c'est ce que « Prevent it » doit couvrir
-  const minOf = f => f.out.slice(0, fc.first).reduce((m, p) => p.bal < m.bal ? p : m, f.out[0]);
-  const liquid = S.checking + S.savings, tax = 0.27 * M.monthIncome * 3;
-  const billsDue = fc.bills.filter(b => b.i <= fc.first).reduce((s, b) => s + b.amt, 0);
-  const free = Math.max(0, liquid - tax - billsDue), safe = free / Math.max(1, fc.first);
-  const minE = minOf(fe), minC = minOf(fc);
-  const riskE = minE.bal < 0 ? minE : null, riskC = minC.bal < 0 ? minC : null;
-  const need = riskC ? Math.min(S.savings, Math.ceil(-minC.bal + 50)) : 0;
-  return { fe, fc, ff, M, liquid, tax, billsDue, free, safe, daysToIncome: fc.first, minE, minC, riskE, riskC, need };
-}
-// Échelle verticale FIXE : calculée sur tous les scénarios et tous les retards (0 à 6 semaines),
-// donc le graphique ne change pas de format quand on bouge le curseur.
-function scale() {
-  let lo = 0, hi = 0;
-  for (let k = 0; k <= 6; k++) ['cautious', 'expected', 'favorable'].forEach(s => forecast(s, k).out.forEach(p => { lo = Math.min(lo, p.bal); hi = Math.max(hi, p.bal); }));
-  return { lo: lo * 1.12, hi: hi * 1.08 };
-}
-
-// --- Transactions : une seule liste, avec les tags que le coach cite ---
-function txAll() {
-  const desc = (a, k) => [...a].sort((x, y) => y[k].localeCompare(x[k]));
-  return [
-    ...desc(S.deposits, 'transaction_date').map((d, i) => ({ tag: 'D' + (i + 1), date: d.transaction_date, label: d.description, amt: +d.amount })),
-    ...desc(S.purchases, 'purchase_date').slice(0, 15).map((p, i) => ({ tag: 'P' + (i + 1), date: p.purchase_date, label: p.description, amt: -p.amount })),
-    ...S.bills.map((b, i) => ({ tag: 'B' + (i + 1), date: b.payment_date, label: `${b.nickname} (monthly, day ${b.recurring_date || +b.payment_date.slice(8)})`, amt: -b.payment_amount, upcoming: true })),
-  ];
-}
-const txTags = () => txAll().map(t => ({ tag: t.tag, text: `${t.date} ${t.amt > 0 ? '+' : '-'}${usd(Math.abs(t.amt))} ${t.label}` }));
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => show(b.dataset.view)));
 
 // --- Rendu ---
 function render() {
@@ -112,7 +21,7 @@ function render() {
   const m = metrics(late);
   countTo(m.safe);
   $('acctCh').textContent = usd(S.checking); $('acctSv').textContent = usd(S.savings);
-  $('buckets').innerHTML = [['Taxes (27%)', m.tax], ['Bills before next pay', m.billsDue], ['Free', m.free]]
+  $('buckets').innerHTML = [[`Taxes (${Math.round(PREFS.taxRate * 100)}%)`, m.tax], ['Bills before next pay', m.billsDue], ['Free', m.free]]
     .map(([n, v]) => `<div class="bucket">${n}<b>${usd(v)}</b></div>`).join('');
   const risk = m.riskE || m.riskC;
   $('alert').hidden = !risk && $('done').hidden;
@@ -131,11 +40,20 @@ function render() {
   $('health').innerHTML = [['Savings rate', Math.max(0, Math.round((m.M.monthIncome - monthSpend) / m.M.monthIncome * 100)) + '%'],
     ['Reserve', (m.liquid / monthSpend).toFixed(1) + ' mo'], ['Debt / income', Math.round(S.debt / m.M.monthIncome * 100) + '%']]
     .map(([n, v]) => `<div>${n}<b>${v}</b></div>`).join('');
+  renderNextPay(m);
   renderActivity();
   setChart(m);
+  return m;
+}
+function renderNextPay(m) {
+  const day = f => f.out[f.first].date, span = Math.max(30, m.fc.first + 3), pct = d => Math.min(100, d / span * 100);
+  $('nextPay').innerHTML = `<div class="when">${nice(day(m.fe))}</div>
+    <div class="rng">Could land as early as ${nice(day(m.ff))}, or as late as ${nice(day(m.fc))}. Typically ${usd(m.M.a.expected)}.</div>
+    <div class="bar"><i style="left:${pct(m.ff.first)}%;width:${Math.max(2, pct(m.fc.first) - pct(m.ff.first))}%"></i><b style="left:${pct(m.fe.first)}%"></b></div>
+    <div class="ends"><span>Today</span><span>+${span} days</span></div>`;
 }
 function renderActivity() {
-  const all = txAll(), up = all.filter(t => t.upcoming), past = all.filter(t => !t.upcoming).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
+  const all = txAll(), up = all.filter(t => t.upcoming), past = all.filter(t => !t.upcoming).sort((a, b) => b.date.localeCompare(a.date));
   $('activity').innerHTML = [...up, ...past].map(t => `<li><span class="tag">${t.tag}</span><span class="t">${t.label}<small>${t.upcoming ? 'Upcoming' : t.date}</small></span><span class="a ${t.amt > 0 ? 'in' : ''}">${t.amt > 0 ? '+' : '-'}${usd(Math.abs(t.amt))}</span></li>`).join('');
 }
 
@@ -230,35 +148,86 @@ $('prevent').onclick = async () => {
 let pending = 0;
 $('late').addEventListener('input', () => { if (!pending) pending = requestAnimationFrame(() => { pending = 0; render(); }); });
 
-// --- Coach : Haiku via /api/coach, repli à base de règles ; toujours des transactions citées ---
+// --- Notification type « push » : prévient avant le découvert ---
+let pushShown = false, pushTimer;
+function showPush(m) {
+  const risk = m.riskE || m.riskC; if (pushShown || !risk) return; pushShown = true;
+  const el = $('push');
+  el.innerHTML = `${LOGO}<div><b>Ahead · now</b><span>${m.riskE ? `Overdraft predicted ${nice(m.minE.date)} (${usd(m.minE.bal)}). Tap to prevent it.` : `At risk on ${nice(m.minC.date)} if your next payment is late.`}</span></div>`;
+  el.hidden = false; requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+  const hide = () => { el.classList.remove('show'); clearTimeout(pushTimer); setTimeout(() => { el.hidden = true; }, 500); };
+  el.onclick = () => { hide(); show('today'); $('alert').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+  pushTimer = setTimeout(hide, 9000);
+}
+
+// --- Onboarding : 3 questions qui changent vraiment les calculs ---
+const STEPS = [
+  { key: 'kind', title: 'How do you get paid?', text: 'Ahead is built for income that does not arrive on a schedule.',
+    opts: [['Freelance', 'Clients pay when they pay'], ['Gig work', 'Payouts vary week to week'], ['Student', 'Part-time, summer jobs, side income']] },
+  { key: 'taxRate', title: 'How much of each payment should go to taxes?', text: 'Nobody withholds it for you. Ahead sets it aside before you can spend it.',
+    opts: [[0.25, '25%', 'Lighter'], [0.27, '27%', 'Recommended for freelancers'], [0.30, '30%', 'Safer']] },
+  { key: 'cushion', title: 'How much should always stay in checking?', text: 'Ahead moves money early so your balance never drops below this.',
+    opts: [[0, '$0', 'Just avoid overdrafts'], [50, '$50', 'A small buffer'], [150, '$150', 'More breathing room']] },
+];
+function onboard(step = 0) {
+  const o = $('onboard'), s = STEPS[step];
+  let chosen = PREFS[s.key];
+  const label = v => (s.opts.find(x => x[0] === v) || [])[0];
+  o.innerHTML = `<div class="ob"><div class="step">Step ${step + 1} of ${STEPS.length}</div><h3>${s.title}</h3><p>${s.text}</p>
+    <div class="opts">${s.opts.map(([v, a, b]) => `<button data-v="${v}" class="${v === chosen ? 'on' : ''}">${b === undefined ? v : a}${(b === undefined ? a : b) ? `<small>${b === undefined ? a : b}</small>` : ''}</button>`).join('')}</div>
+    <div class="ob-foot"><button class="ob-skip">Skip</button><button class="ob-next">${step === STEPS.length - 1 ? 'Show me my money' : 'Continue'}</button></div></div>`;
+  o.hidden = false;
+  o.querySelectorAll('.opts button').forEach((b, i) => b.onclick = () => { chosen = s.opts[i][0]; o.querySelectorAll('.opts button').forEach(x => x.classList.toggle('on', x === b)); });
+  const next = () => { PREFS[s.key] = chosen; if (step + 1 < STEPS.length) onboard(step + 1); else finish(); };
+  const finish = () => { PREFS.done = true; savePrefs(); o.hidden = true; const m = render(); setTimeout(() => showPush(m), 700); };
+  o.querySelector('.ob-next').onclick = next;
+  o.querySelector('.ob-skip').onclick = finish;
+}
+
+// --- Coach : conversation. Haiku via /api/coach, repli à base de règles ; toujours des transactions citées ---
 function ruleCoach(q) {
   const m = metrics(+$('late').value), amt = +((q.match(/\$?\s*(\d[\d,]*(?:\.\d+)?)/) || [])[1] || '').replace(',', '');
   const tags = txTags(), cite = t => tags.filter(x => x.tag[0] === t).slice(0, 3).map(x => `[${x.tag}]`).join(' ');
+  if (/overdraft|negative|run out/i.test(q)) return m.riskE ? `Yes, if nothing changes: checking is projected at ${usd(m.minE.bal)} on ${nice(m.minE.date)}, because bills ${cite('B')} land before your next payment ${cite('D')}. Prevent it moves ${usd(m.need)} from savings.` : 'No overdraft is projected in the next 45 days, even if your next payment is late.';
+  if (/tax/i.test(q)) return `Set aside ${Math.round(PREFS.taxRate * 100)}% of every payment: that is ${usd(m.tax)} on your last 90 days of income ${cite('D')}.`;
   if (!amt) return `Today you can spend ${usd(m.safe)} safely: ${usd(m.free)} free over the ${m.daysToIncome} days until your next payment, after ${usd(m.tax)} for taxes on income ${cite('D')} and ${usd(m.billsDue)} of bills ${cite('B')}.`;
   return amt <= m.free
     ? `Yes: ${usd(amt)} fits in your free bucket of ${usd(m.free)}, after taxes on income ${cite('D')} and bills ${cite('B')}.`
     : `Not yet: ${usd(amt)} is more than your free bucket of ${usd(m.free)}. Taxes on income ${cite('D')} and bills ${cite('B')} come first.`;
 }
-function showAnswer(text) {
-  const used = txTags().filter(t => text.includes(`[${t.tag}]`));
-  $('answer').innerHTML = `<p></p><ul class="cites">${used.map(t => `<li><b>${t.tag}</b> ${t.text}</li>`).join('')}</ul>`;
-  $('answer').firstChild.textContent = text;
+function addMsg(who, text, withCites) {
+  const d = document.createElement('div'); d.className = 'msg ' + who;
+  const p = document.createElement('p'); p.textContent = text; d.appendChild(p);
+  if (withCites) {
+    const used = txTags().filter(t => text.includes(`[${t.tag}]`));
+    if (used.length) { const ul = document.createElement('ul'); ul.className = 'cites'; used.forEach(t => { const li = document.createElement('li'); li.innerHTML = `<b>${t.tag}</b> `; li.append(t.text); ul.appendChild(li); }); d.appendChild(ul); }
+  }
+  $('chatlog').appendChild(d); d.scrollIntoView({ block: 'end', behavior: 'smooth' }); return d;
 }
-$('askForm').onsubmit = async e => {
-  e.preventDefault();
-  const q = $('q').value.trim(); if (!q) return;
-  $('answer').textContent = 'Thinking…';
+async function ask(q) {
+  addMsg('me', q);
+  const typing = addMsg('bot', ''); typing.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
   const m = metrics(+$('late').value), when = f => nice(f.out[f.first].date);
   const context = { today: iso(TODAY), checking: S.checking, savings: S.savings, creditCardDebt: S.debt, safeToSpendToday: Math.round(m.safe), taxBucket: Math.round(m.tax),
     billsBeforeNextPayment: Math.round(m.billsDue), freeBucket: Math.round(m.free), avgDailySpend: Math.round(dailySpend()),
     nextPayment: { cautious: when(m.fc), expected: when(m.fe), favorable: when(m.ff) }, projectedLowestBalance: { expected: Math.round(m.minE.bal), cautious: Math.round(m.minC.bal) }, transactions: txTags() };
+  let answer;
   try {
     const r = await fetch('/api/coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, context }) });
     if (!r.ok) throw new Error(r.status);
-    const { answer } = await r.json();
-    if (!answer) throw new Error('empty');
-    showAnswer(answer);
-  } catch { showAnswer(ruleCoach(q)); }
-};
+    answer = (await r.json()).answer; if (!answer) throw new Error('empty');
+  } catch { answer = ruleCoach(q); }
+  typing.remove(); addMsg('bot', answer, true);
+}
+$('askForm').onsubmit = e => { e.preventDefault(); const q = $('q').value.trim(); if (!q) return; $('q').value = ''; ask(q); };
+$('chips').addEventListener('click', e => { const b = e.target.closest('button[data-q]'); if (b) ask(b.dataset.q); });
+addMsg('bot', "Hi, I'm Ahead. Ask me about your money. I'll show you the exact transactions behind every answer.");
 
-load().then(render);
+// --- Démarrage ---
+load().then(live => {
+  $('mode').textContent = live ? 'Nessie live' : 'Simulated data';
+  const m = render();
+  show((location.hash || '#today').slice(1));
+  const skip = new URLSearchParams(location.search).has('skip');
+  if (!PREFS.done && !skip) onboard(); else setTimeout(() => showPush(m), 900);
+});

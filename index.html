@@ -1,62 +1,108 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Steady — safe to spend</title>
-<meta name="description" content="A financial copilot for irregular income: one safe-to-spend number, and it acts before you overdraft.">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ahead — safe to spend</title>
+<meta name="description" content="Ahead turns an irregular income into one number you can safely spend today, and acts days before an overdraft.">
+<meta name="theme-color" content="#0b2540">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="top">
-  <div class="brand"><span class="logo" aria-hidden="true"></span><h1>Steady</h1></div>
-  <div class="accounts">
-    <div class="acct"><span>Checking</span><b id="acctCh">$0</b></div>
-    <div class="acct"><span>Savings</span><b id="acctSv">$0</b></div>
-    <span id="mode" class="pill"></span>
+<div class="app">
+  <aside class="rail">
+    <div class="brand"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1b7f8c"/><stop offset="1" stop-color="#123b5e"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M10 9l7 7-7 7M17 9l7 7-7 7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><h1>Ahead</h1></div>
+    <nav class="nav" id="nav">
+      <button data-view="today" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Today</span></button>
+      <button data-view="plan"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-9M15 6h6v6"/></svg><span>Plan</span></button>
+      <button data-view="coach"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span>Coach</span></button>
+      <button data-view="activity"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Activity</span></button>
+    </nav>
+    <p class="rail-foot">HackUTD 2026<br>Nessie · Claude Haiku</p>
+  </aside>
+
+  <div class="content">
+    <header class="top">
+      <h2 id="title">Today</h2>
+      <div class="accounts">
+        <div class="acct"><span>Checking</span><b id="acctCh">$0</b></div>
+        <div class="acct"><span>Savings</span><b id="acctSv">$0</b></div>
+        <span id="mode" class="pill"></span>
+      </div>
+    </header>
+
+    <main>
+      <!-- Today -->
+      <section class="screen on" id="screen-today">
+        <div class="grid2">
+          <div class="stack">
+            <div class="hero" aria-live="polite">
+              <p class="label" id="greet">Safe to spend today</p>
+              <p class="big" id="safe">$0</p>
+              <p class="sub">after taxes and bills, until your next payment</p>
+              <div class="buckets" id="buckets"></div>
+            </div>
+            <section class="card alert" id="alert" hidden>
+              <div class="alert-head"><span class="dot" aria-hidden="true"></span><p class="label" id="alertLabel">Heads up</p></div>
+              <p id="alertText" class="alert-text"></p>
+              <p id="alertSub" class="alert-sub"></p>
+              <button id="prevent">Prevent it</button>
+              <p id="done" class="done" hidden></p>
+            </section>
+          </div>
+          <div class="stack">
+            <section class="card"><p class="label">Next payment</p><div id="nextPay" class="nextpay"></div></section>
+            <section class="card"><p class="label">Financial health</p><div class="health" id="health"></div></section>
+          </div>
+        </div>
+      </section>
+
+      <!-- Plan -->
+      <section class="screen" id="screen-plan">
+        <section class="card chartcard">
+          <div class="row"><p class="label">Balance forecast · 45 days</p>
+            <p class="legend"><i class="l-line"></i>Expected <i class="l-band"></i>Range <i class="l-bill"></i>Bill <i class="l-in"></i>Payment</p></div>
+          <canvas id="chart" aria-label="Forecast of your checking balance over 45 days"></canvas>
+          <label class="sim">
+            <span>What if your client pays <b id="lateVal">0</b> weeks late?</span>
+            <input type="range" id="late" min="0" max="6" value="0">
+          </label>
+        </section>
+      </section>
+
+      <!-- Coach -->
+      <section class="screen" id="screen-coach">
+        <section class="card chat">
+          <div id="chatlog" class="chatlog"></div>
+          <div class="chips" id="chips">
+            <button type="button" data-q="Can I afford a $200 lens?">Can I afford a $200 lens?</button>
+            <button type="button" data-q="Am I going to overdraft?">Am I going to overdraft?</button>
+            <button type="button" data-q="How much should I set aside for taxes?">Taxes?</button>
+          </div>
+          <form id="askForm"><input id="q" placeholder="Ask about your money…" autocomplete="off"><button>Send</button></form>
+        </section>
+      </section>
+
+      <!-- Activity -->
+      <section class="screen" id="screen-activity">
+        <section class="card"><p class="label">Activity</p><ul class="activity" id="activity"></ul></section>
+      </section>
+    </main>
   </div>
-</header>
+</div>
 
-<main class="layout">
-  <div class="col">
-    <section class="hero" aria-live="polite">
-      <p class="label">Safe to spend today</p>
-      <p class="big" id="safe">$0</p>
-      <p class="sub">after taxes and bills, until your next payment</p>
-      <div class="buckets" id="buckets"></div>
-    </section>
+<nav class="tabbar" id="tabbar" aria-label="Main">
+  <button data-view="today" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Today</span></button>
+  <button data-view="plan"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-9M15 6h6v6"/></svg><span>Plan</span></button>
+  <button data-view="coach"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span>Coach</span></button>
+  <button data-view="activity"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Activity</span></button>
+</nav>
 
-    <section class="card alert" id="alert" hidden>
-      <div class="alert-head"><span class="dot" aria-hidden="true"></span><p class="label" id="alertLabel">Heads up</p></div>
-      <p id="alertText" class="alert-text"></p>
-      <p id="alertSub" class="alert-sub"></p>
-      <button id="prevent">Prevent it</button>
-      <p id="done" class="done" hidden></p>
-    </section>
+<div id="push" class="push" hidden role="alert"></div>
+<div id="onboard" class="onboard" hidden></div>
 
-    <section class="card healthcard"><p class="label">Financial health</p><div class="health" id="health"></div></section>
-
-    <section class="card activitycard"><p class="label">Activity</p><ul class="activity" id="activity"></ul></section>
-  </div>
-
-  <div class="col">
-    <section class="card chartcard">
-      <div class="row"><p class="label">Balance forecast · 45 days</p>
-        <p class="legend"><i class="l-line"></i>Expected <i class="l-band"></i>Range <i class="l-bill"></i>Bill <i class="l-in"></i>Payment</p></div>
-      <canvas id="chart" aria-label="Forecast of your checking balance over 45 days"></canvas>
-      <label class="sim">
-        <span>What if your client pays <b id="lateVal">0</b> weeks late?</span>
-        <input type="range" id="late" min="0" max="6" value="0">
-      </label>
-    </section>
-
-    <section class="card coachcard"><p class="label">Coach</p>
-      <form id="askForm"><input id="q" placeholder="Can I afford a $200 lens?" autocomplete="off"><button>Ask</button></form>
-      <div id="answer"></div></section>
-  </div>
-</main>
-<footer>Built for HackUTD · Capital One Nessie · Claude Haiku</footer>
+<script src="engine.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
