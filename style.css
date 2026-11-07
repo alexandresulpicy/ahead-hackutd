@@ -1,0 +1,25 @@
+:root{--navy:#0f2a43;--teal:#1b7f8c;--green:#1f9d6b;--amber:#d98a1a;--red:#c8372d;--bg:#f5f8fa;--ink:#16222e;--mute:#6b7c8b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+main{max-width:680px;margin:0 auto;padding:24px 16px 64px;display:grid;gap:16px}
+header{display:flex;justify-content:space-between;align-items:center}
+h1{margin:0;color:var(--navy);font-size:20px}
+.pill{font-size:12px;padding:4px 10px;border-radius:99px;background:#e3edf2;color:var(--navy)}
+.card{background:#fff;border-radius:16px;padding:20px;box-shadow:0 1px 3px rgba(15,42,67,.08)}
+.label{margin:0 0 8px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.big{margin:0;font-size:64px;font-weight:700;color:var(--navy);transition:color .2s}
+.buckets{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.bucket{flex:1;min-width:120px;padding:10px 12px;border-radius:10px;background:#eef4f7;font-size:13px}
+.bucket b{display:block;font-size:16px}
+button{background:var(--teal);color:#fff;border:0;border-radius:10px;padding:10px 18px;font:600 14px Inter;cursor:pointer;transition:background .15s}
+button:hover{background:var(--navy)}
+#alert{border-left:4px solid var(--amber)}
+.ok{color:var(--green);font-weight:600}
+canvas{width:100%;height:auto}
+.sim{display:block;margin-top:12px;font-size:14px}.sim input{width:100%}
+.health{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.health div{padding:10px;border-radius:10px;background:#eef4f7;font-size:13px}.health b{display:block;font-size:18px}
+#askForm{display:flex;gap:8px}#q{flex:1;padding:10px;border:1px solid #d3dde4;border-radius:10px;font:14px Inter}
+#answer{margin-top:12px;font-size:14px;line-height:1.5}
+
+.cites{margin:8px 0 0;padding-left:18px;color:var(--mute);font-size:12px}

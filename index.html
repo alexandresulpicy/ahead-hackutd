@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Steady — safe to spend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header><h1>Steady</h1><span id="mode" class="pill"></span></header>
+
+  <section class="card hero">
+    <p class="label">Safe to spend today</p>
+    <p class="big" id="safe">$0</p>
+    <div class="buckets" id="buckets"></div>
+  </section>
+
+  <section class="card" id="alert" hidden>
+    <p class="label">Heads up</p>
+    <p id="alertText"></p>
+    <button id="prevent">Prevent it</button>
+    <p id="done" class="ok" hidden></p>
+  </section>
+
+  <section class="card">
+    <p class="label">Balance forecast, 45 days</p>
+    <canvas id="chart" width="640" height="200"></canvas>
+    <label class="sim">Client pays <b id="lateVal">0</b> weeks late
+      <input type="range" id="late" min="0" max="6" value="0"></label>
+  </section>
+
+  <section class="card"><p class="label">Health</p><div class="health" id="health"></div></section>
+
+  <section class="card"><p class="label">Coach</p>
+    <form id="askForm"><input id="q" placeholder="Can I afford a $200 lens?"><button>Ask</button></form>
+    <div id="answer"></div></section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
