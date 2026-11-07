@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
-      model: 'claude-haiku-5-5', max_tokens: 250, system: SYSTEM,
+      model: 'claude-haiku-5-5', max_tokens: 400, thinking: { type: 'disabled' }, system: SYSTEM,
       messages: [{ role: 'user', content: `Data:\n${JSON.stringify(context)}\n\nQuestion: ${question}` }],
     }),
   });
