@@ -46,7 +46,10 @@ button:focus-visible,input:focus-visible{outline:3px solid rgba(27,127,140,.35);
 .alert{border:1px solid #f1d9a8;background:linear-gradient(180deg,var(--amber-soft),#fff 70%);animation:rise .25s ease-out}
 .alert-head{display:flex;align-items:center;gap:8px}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 4px rgba(217,138,26,.2)}
-.alert-text{margin:10px 0 14px;font-size:16px;font-weight:500}
+.alert-text{margin:10px 0 6px;font-size:16px;font-weight:500}
+.alert-sub{margin:0 0 14px;font-size:13.5px;color:var(--mute)}.alert-sub[hidden]{display:none}
+.alert.is-risk .dot{background:var(--amber)}
+.l-band{background:rgba(27,127,140,.3)}
 .alert.is-done{border-color:#b9e4cf;background:linear-gradient(180deg,var(--green-soft),#fff 70%)}
 .alert.is-done .dot{background:var(--green);box-shadow:0 0 0 4px rgba(31,157,107,.2)}
 .done{margin:0;display:flex;align-items:center;gap:10px;color:var(--green);font-weight:600;font-size:16px;animation:pop .35s cubic-bezier(.2,1.4,.4,1)}

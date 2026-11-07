@@ -28,8 +28,9 @@
     </section>
 
     <section class="card alert" id="alert" hidden>
-      <div class="alert-head"><span class="dot" aria-hidden="true"></span><p class="label">Heads up</p></div>
+      <div class="alert-head"><span class="dot" aria-hidden="true"></span><p class="label" id="alertLabel">Heads up</p></div>
       <p id="alertText" class="alert-text"></p>
+      <p id="alertSub" class="alert-sub"></p>
       <button id="prevent">Prevent it</button>
       <p id="done" class="done" hidden></p>
     </section>
@@ -42,7 +43,7 @@
   <div class="col">
     <section class="card chartcard">
       <div class="row"><p class="label">Balance forecast · 45 days</p>
-        <p class="legend"><i class="l-line"></i>Balance <i class="l-bill"></i>Bill <i class="l-in"></i>Income</p></div>
+        <p class="legend"><i class="l-line"></i>Expected <i class="l-band"></i>Range <i class="l-bill"></i>Bill <i class="l-in"></i>Payment</p></div>
       <canvas id="chart" aria-label="Forecast of your checking balance over 45 days"></canvas>
       <label class="sim">
         <span>What if your client pays <b id="lateVal">0</b> weeks late?</span>
