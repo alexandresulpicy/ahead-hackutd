@@ -21,8 +21,12 @@ async function nessie(path, method = 'GET', body) {
   const r = await fetch('/api/nessie?path=' + encodeURIComponent(path), {
     method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
   if (!r.ok) throw new Error(r.status);
-  return r.json();
+  const t = await r.text(); return t ? JSON.parse(t) : {};
 }
+// Autopilot : enveloppes protégées (comptées dans l'épargne, jamais utilisées pour couvrir un découvert) et règles
+const ENV = { tax: 0, bills: 0 };
+const RULES = { tax: true, bills: true, billsPct: 0.2 };
+const freeSavings = () => Math.max(0, S.savings - ENV.tax - ENV.bills);
 function demoData() { // miroir du compte Nessie : 90 jours de freelance, revenu irrégulier
   let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   const cats = [['Groceries', 30, 70, .30], ['Gas', 25, 45, .12], ['Eating out', 12, 30, .22], ['Coffee', 5, 9, .20], ['Equipment', 90, 220, .03]];
@@ -92,7 +96,7 @@ function metrics(late) {
   const free = Math.max(0, liquid - tax - billsDue), safe = free / Math.max(1, fc.first);
   const minE = minOf(fe), minC = minOf(fc);
   const riskE = minE.bal < 0 ? minE : null, riskC = minC.bal < 0 ? minC : null;
-  const need = riskC ? Math.min(S.savings, Math.ceil(-minC.bal + PREFS.cushion)) : 0;
+  const need = riskC ? Math.min(freeSavings(), Math.ceil(-minC.bal + PREFS.cushion)) : 0;
   return { fe, fc, ff, M, liquid, tax, billsDue, free, safe, daysToIncome: fc.first, minE, minC, riskE, riskC, need };
 }
 // Échelle verticale FIXE : calculée sur tous les scénarios et tous les retards (0 à 6 semaines),

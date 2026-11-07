@@ -1,6 +1,6 @@
 // Ahead — interface : écrans, graphique, onboarding, notification, coach
 const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1b7f8c"/><path d="M10 9l7 7-7 7M17 9l7 7-7 7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const TITLES = { today: 'Today', plan: 'Plan', coach: 'Coach', activity: 'Activity' };
+const TITLES = { today: 'Today', plan: 'Plan', autopilot: 'Autopilot', coach: 'Coach', activity: 'Activity' };
 let view = 'today';
 
 function show(v) {
@@ -42,6 +42,7 @@ function render() {
     .map(([n, v]) => `<div>${n}<b>${v}</b></div>`).join('');
   renderNextPay(m);
   renderActivity();
+  renderAutopilot(m);
   setChart(m);
   return m;
 }
@@ -140,10 +141,73 @@ $('prevent').onclick = async () => {
   $('prevent').disabled = true; // pas de double transfert
   S.savings -= need; S.checking += need;
   $('done').hidden = false; $('done').textContent = `Overdraft avoided. ${usd(OVERDRAFT_FEE)} in fees saved.`;
+  logAction([{ k: 'move', t: `Moved ${usd(need)} from savings to checking`, s: `Ahead acted ${m.riskE ? Math.max(1, m.minE.i) : m.minC.i} days before the shortfall. ${usd(OVERDRAFT_FEE)} in overdraft fees avoided. Tax and bills envelopes untouched.` }]);
   render();
   // Nessie ne déplace pas les soldes : le transfer est enregistré (best-effort)
   try { await nessie(`/accounts/${SV}/transfers`, 'POST', { status: 'pending', amount: need, transaction_date: iso(TODAY), description: `Prevent overdraft: savings ${SV} -> checking ${CH}` }); } catch {}
 };
+// --- Autopilot : règles qui s'exécutent seules quand un client paie, écrites dans Nessie ---
+const LOG = []; // le plus récent d'abord
+const ICONS = { in: '＋', move: '→', safe: '◎', undo: '↺' };
+let payAmount = 1500, LAST_PAY = null;
+function logAction(entries) {
+  const t = new Date(); entries.slice().reverse().forEach(e => LOG.unshift({ ...e, at: t }));
+  renderAutopilot();
+}
+function renderAutopilot(m = metrics(+$('late').value)) {
+  $('ruleTaxT').textContent = `Tax jar · ${Math.round(PREFS.taxRate * 100)}% of every payment`;
+  $('ruleBillsT').textContent = `Bills envelope · ${Math.round(RULES.billsPct * 100)}% of every payment`;
+  $('ruleTax').checked = RULES.tax; $('ruleBills').checked = RULES.bills;
+  const bar = (name, saved, goal, cls) => `<div class="e ${cls}"><div><span>${name}</span><b>${usd(saved)} <span>of ${usd(goal)}</span></b></div><div class="track"><i style="width:${Math.min(100, goal ? saved / goal * 100 : 0)}%"></i></div></div>`;
+  $('env').innerHTML = bar('Tax jar', ENV.tax, m.tax, 't') + bar('Bills envelope', ENV.bills, m.billsDue, 'b');
+  $('undoBtn').hidden = !LAST_PAY;
+  $('log').innerHTML = LOG.length ? LOG.map(e => `<li><span class="ic ${e.k}">${ICONS[e.k]}</span><span class="tx">${e.t}${e.s ? `<small>${e.s}</small>` : ''}</span><span class="tm">${e.at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></li>`).join('')
+    : '<li class="empty">Nothing yet. Simulate a payment, or tap "Prevent it" on the Today screen, and every move Ahead makes shows up here.</li>';
+}
+async function clientPaid(amount) {
+  const late = +$('late').value, before = metrics(late).safe;
+  $('payBtn').disabled = true; $('payNote').textContent = 'Writing the deposit to Nessie…';
+  let id = null, wrote = true;
+  try { id = (await nessie(`/accounts/${CH}/deposits`, 'POST', { medium: 'balance', transaction_date: iso(TODAY), status: 'completed', amount, description: 'Autopilot demo - client payment' })).objectCreated?._id; } catch { wrote = false; }
+  S.deposits.push({ transaction_date: iso(TODAY), amount, description: 'Autopilot demo - client payment', _id: id });
+  S.checking += amount;
+  const moves = [];
+  if (RULES.tax) moves.push({ key: 'tax', name: 'tax jar', a: Math.round(amount * PREFS.taxRate) });
+  if (RULES.bills) moves.push({ key: 'bills', name: 'bills envelope', a: Math.round(amount * RULES.billsPct) });
+  const entries = [{ k: 'in', t: `Client paid ${usd(amount)}`, s: wrote ? 'Deposit written to Capital One Nessie [D1]' : 'Recorded in the app (Nessie unreachable)' }];
+  for (const mv of moves) {
+    S.checking -= mv.a; S.savings += mv.a; ENV[mv.key] += mv.a;
+    entries.push({ k: 'move', t: `${usd(mv.a)} to your ${mv.name}`, s: `${mv.key === 'tax' ? Math.round(PREFS.taxRate * 100) : Math.round(RULES.billsPct * 100)}% of the payment, moved before you could spend it` });
+    try { await nessie(`/accounts/${CH}/transfers`, 'POST', { status: 'pending', amount: mv.a, transaction_date: iso(TODAY), description: `Ahead autopilot: ${mv.name} (${CH} -> ${SV})` }); } catch {}
+  }
+  LAST_PAY = { amount, id, moves };
+  const m = render();
+  entries.push({ k: 'safe', t: `Safe to spend today: ${usd(before)} → ${usd(m.safe)}`, s: m.riskE || m.riskC ? 'A shortfall is still possible before your next payment.' : 'No overdraft projected, even if your next payment is late.' });
+  logAction(entries);
+  $('payBtn').disabled = false; $('payNote').textContent = 'Done. Check Today, Plan and Activity: everything updated.';
+}
+async function undoPayment() {
+  if (!LAST_PAY) return; const p = LAST_PAY; LAST_PAY = null;
+  const i = S.deposits.findIndex(d => d._id === p.id && p.id); if (i >= 0) S.deposits.splice(i, 1); else S.deposits.pop();
+  S.checking -= p.amount; p.moves.forEach(mv => { S.checking += mv.a; S.savings -= mv.a; ENV[mv.key] -= mv.a; });
+  if (p.id) { try { await nessie(`/deposits/${p.id}`, 'DELETE'); } catch {} }
+  render(); logAction([{ k: 'undo', t: `Reverted the ${usd(p.amount)} payment`, s: 'Deposit removed from Nessie' }]);
+}
+async function resetDemo() { // supprime les paiements de démo restés dans Nessie
+  $('resetBtn').disabled = true;
+  const stale = S.deposits.filter(d => String(d.description).startsWith('Autopilot demo'));
+  for (const d of stale) { if (d._id) { try { await nessie(`/deposits/${d._id}`, 'DELETE'); } catch {} } }
+  S.deposits = S.deposits.filter(d => !String(d.description).startsWith('Autopilot demo'));
+  Object.assign(S, { checking: demoData().checking, savings: demoData().savings }); ENV.tax = ENV.bills = 0; LAST_PAY = null; LOG.length = 0;
+  await load(); render(); $('resetBtn').disabled = false; $('payNote').textContent = 'Demo reset to your Nessie history.';
+}
+$('payBtn').onclick = () => clientPaid(payAmount);
+$('undoBtn').onclick = undoPayment;
+$('resetBtn').onclick = resetDemo;
+$('amts').addEventListener('click', e => { const b = e.target.closest('button[data-a]'); if (!b) return; payAmount = +b.dataset.a; $('amts').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
+$('ruleTax').onchange = e => { RULES.tax = e.target.checked; };
+$('ruleBills').onchange = e => { RULES.bills = e.target.checked; };
+
 // Curseur : un seul rendu par image, pas à chaque événement
 let pending = 0;
 $('late').addEventListener('input', () => { if (!pending) pending = requestAnimationFrame(() => { pending = 0; render(); }); });

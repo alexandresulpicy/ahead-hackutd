@@ -16,6 +16,7 @@
     <nav class="nav" id="nav">
       <button data-view="today" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Today</span></button>
       <button data-view="plan"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-9M15 6h6v6"/></svg><span>Plan</span></button>
+      <button data-view="autopilot"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><span>Autopilot</span></button>
       <button data-view="coach"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span>Coach</span></button>
       <button data-view="activity"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Activity</span></button>
     </nav>
@@ -71,6 +72,35 @@
         </section>
       </section>
 
+      <!-- Autopilot -->
+      <section class="screen" id="screen-autopilot">
+        <div class="grid2">
+          <div class="stack">
+            <section class="card">
+              <p class="label">When a client pays</p>
+              <p class="muted">Ahead splits every payment before you can spend it.</p>
+              <div class="rules">
+                <label class="rule"><span><b id="ruleTaxT">Tax jar</b><small>Protected: never used to cover an overdraft</small></span><input type="checkbox" id="ruleTax" checked><i class="sw"></i></label>
+                <label class="rule"><span><b id="ruleBillsT">Bills envelope</b><small>Rent and bills covered before your next payment</small></span><input type="checkbox" id="ruleBills" checked><i class="sw"></i></label>
+              </div>
+              <div class="env" id="env"></div>
+            </section>
+            <section class="card">
+              <p class="label">Try it: simulate a payment</p>
+              <div class="amts" id="amts">
+                <button type="button" data-a="800">$800</button><button type="button" data-a="1500" class="on">$1,500</button><button type="button" data-a="2400">$2,400</button>
+              </div>
+              <button class="pri wide" id="payBtn">My client just paid</button>
+              <p class="muted small" id="payNote">Writes a real deposit to Capital One's Nessie API, then Ahead applies your rules.</p>
+              <div class="links"><button type="button" class="link" id="undoBtn" hidden>Undo last payment</button><button type="button" class="link" id="resetBtn">Reset demo</button></div>
+            </section>
+          </div>
+          <div class="stack">
+            <section class="card"><p class="label">What Ahead did for you</p><ul class="log" id="log"></ul></section>
+          </div>
+        </div>
+      </section>
+
       <!-- Coach -->
       <section class="screen" id="screen-coach">
         <section class="card chat">
@@ -95,6 +125,7 @@
 <nav class="tabbar" id="tabbar" aria-label="Main">
   <button data-view="today" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Today</span></button>
   <button data-view="plan"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-9M15 6h6v6"/></svg><span>Plan</span></button>
+      <button data-view="autopilot"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><span>Autopilot</span></button>
   <button data-view="coach"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span>Coach</span></button>
   <button data-view="activity"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Activity</span></button>
 </nav>
