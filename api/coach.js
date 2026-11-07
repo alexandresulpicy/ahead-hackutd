@@ -17,5 +17,6 @@ export default async function handler(req, res) {
   });
   if (!r.ok) return res.status(502).json({ error: 'upstream ' + r.status });
   const j = await r.json();
-  res.status(200).json({ answer: j.content?.[0]?.text || '' });
+  const answer = (j.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+  res.status(200).json({ answer });
 }

@@ -114,7 +114,9 @@ $('askForm').onsubmit = async e => {
   try {
     const r = await fetch('/api/coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, context }) });
     if (!r.ok) throw new Error(r.status);
-    showAnswer((await r.json()).answer);
+    const { answer } = await r.json();
+    if (!answer) throw new Error('empty');
+    showAnswer(answer);
   } catch { showAnswer(ruleCoach(q)); }
 };
 
