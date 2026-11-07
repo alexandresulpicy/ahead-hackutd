@@ -9,44 +9,53 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main>
-  <header class="top">
-    <div class="brand"><span class="logo" aria-hidden="true"></span><h1>Steady</h1></div>
+<header class="top">
+  <div class="brand"><span class="logo" aria-hidden="true"></span><h1>Steady</h1></div>
+  <div class="accounts">
+    <div class="acct"><span>Checking</span><b id="acctCh">$0</b></div>
+    <div class="acct"><span>Savings</span><b id="acctSv">$0</b></div>
     <span id="mode" class="pill"></span>
-  </header>
+  </div>
+</header>
 
-  <section class="hero" aria-live="polite">
-    <p class="label">Safe to spend today</p>
-    <p class="big" id="safe">$0</p>
-    <p class="sub">after taxes and bills, until your next payment</p>
-    <div class="buckets" id="buckets"></div>
-  </section>
+<main class="layout">
+  <div class="col">
+    <section class="hero" aria-live="polite">
+      <p class="label">Safe to spend today</p>
+      <p class="big" id="safe">$0</p>
+      <p class="sub">after taxes and bills, until your next payment</p>
+      <div class="buckets" id="buckets"></div>
+    </section>
 
-  <section class="card alert" id="alert" hidden>
-    <div class="alert-head"><span class="dot" aria-hidden="true"></span><p class="label">Heads up</p></div>
-    <p id="alertText" class="alert-text"></p>
-    <button id="prevent">Prevent it</button>
-    <p id="done" class="done" hidden></p>
-  </section>
+    <section class="card alert" id="alert" hidden>
+      <div class="alert-head"><span class="dot" aria-hidden="true"></span><p class="label">Heads up</p></div>
+      <p id="alertText" class="alert-text"></p>
+      <button id="prevent">Prevent it</button>
+      <p id="done" class="done" hidden></p>
+    </section>
 
-  <section class="card">
-    <div class="row"><p class="label">Balance forecast · 45 days</p>
-      <p class="legend"><i class="l-line"></i>Balance <i class="l-bill"></i>Bill <i class="l-in"></i>Income</p></div>
-    <canvas id="chart" aria-label="Forecast of your checking balance over 45 days"></canvas>
-    <label class="sim">
-      <span>What if your client pays <b id="lateVal">0</b> weeks late?</span>
-      <input type="range" id="late" min="0" max="6" value="0">
-    </label>
-  </section>
+    <section class="card healthcard"><p class="label">Financial health</p><div class="health" id="health"></div></section>
 
-  <section class="card"><p class="label">Financial health</p><div class="health" id="health"></div></section>
+    <section class="card activitycard"><p class="label">Activity</p><ul class="activity" id="activity"></ul></section>
+  </div>
 
-  <section class="card"><p class="label">Coach</p>
-    <form id="askForm"><input id="q" placeholder="Can I afford a $200 lens?" autocomplete="off"><button>Ask</button></form>
-    <div id="answer"></div></section>
+  <div class="col">
+    <section class="card chartcard">
+      <div class="row"><p class="label">Balance forecast · 45 days</p>
+        <p class="legend"><i class="l-line"></i>Balance <i class="l-bill"></i>Bill <i class="l-in"></i>Income</p></div>
+      <canvas id="chart" aria-label="Forecast of your checking balance over 45 days"></canvas>
+      <label class="sim">
+        <span>What if your client pays <b id="lateVal">0</b> weeks late?</span>
+        <input type="range" id="late" min="0" max="6" value="0">
+      </label>
+    </section>
 
-  <footer>Built for HackUTD · Capital One Nessie · Claude Haiku</footer>
+    <section class="card coachcard"><p class="label">Coach</p>
+      <form id="askForm"><input id="q" placeholder="Can I afford a $200 lens?" autocomplete="off"><button>Ask</button></form>
+      <div id="answer"></div></section>
+  </div>
 </main>
+<footer>Built for HackUTD · Capital One Nessie · Claude Haiku</footer>
 <script src="app.js"></script>
 </body>
 </html>
