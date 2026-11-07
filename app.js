@@ -53,27 +53,62 @@ function metrics(lateWeeks) {
 function render() {
   const late = +$('late').value; $('lateVal').textContent = late;
   const m = metrics(late);
-  $('safe').textContent = usd(m.safe);
+  countTo(m.safe);
   $('buckets').innerHTML = [['Taxes (27%)', m.tax], ['Bills due', m.rent], ['Free', m.free]]
     .map(([n, v]) => `<div class="bucket">${n}<b>${usd(v)}</b></div>`).join('');
   $('alert').hidden = !m.first && $('done').hidden;
+  $('alert').classList.toggle('is-done', !m.first && !$('done').hidden);
   $('alertText').textContent = m.first ? `Checking goes to ${usd(m.first.bal)} on ${m.first.date}. Move money from savings ${m.first.i} days early?` : 'No overdraft in the next 45 days.';
   $('prevent').hidden = !m.first;
   $('health').innerHTML = [['Savings rate', Math.round(S.savings / (S.savings + S.checking) * 100) + '%'], ['Reserve', (S.savings / 1700).toFixed(1) + ' mo'], ['Debt / income', '0%']]
     .map(([n, v]) => `<div>${n}<b>${v}</b></div>`).join('');
   drawChart(m.f.out);
 }
-function drawChart(pts) {
-  const c = $('chart'), g = c.getContext('2d'), W = c.width, H = c.height;
-  g.clearRect(0, 0, W, H);
-  const lo = Math.min(0, ...pts.map(p => p.bal)), hi = Math.max(...pts.map(p => p.bal));
-  const x = i => i / HORIZON * W, y = v => H - 10 - (v - lo) / (hi - lo || 1) * (H - 20);
-  g.strokeStyle = '#d3dde4'; g.beginPath(); g.moveTo(0, y(0)); g.lineTo(W, y(0)); g.stroke();
-  g.lineWidth = 2.5; g.strokeStyle = '#1b7f8c'; g.beginPath();
-  pts.forEach((p, k) => k ? g.lineTo(x(p.i), y(p.bal)) : g.moveTo(x(p.i), y(p.bal))); g.stroke();
-  g.strokeStyle = '#c8372d'; g.beginPath(); let on = false;
-  pts.forEach(p => { if (p.bal < 0) { on ? g.lineTo(x(p.i), y(p.bal)) : g.moveTo(x(p.i), y(p.bal)); on = true; } }); g.stroke();
+// Compteur animé du chiffre principal
+let shown = 0, raf;
+function countTo(v) {
+  cancelAnimationFrame(raf);
+  const from = shown, t0 = performance.now(), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const step = t => {
+    const k = still ? 1 : Math.min(1, (t - t0) / 450), e = 1 - Math.pow(1 - k, 3);
+    shown = from + (v - from) * e; $('safe').textContent = usd(shown);
+    if (k < 1) raf = requestAnimationFrame(step);
+  };
+  raf = requestAnimationFrame(step);
 }
+
+function drawChart(pts) {
+  const c = $('chart'), dpr = window.devicePixelRatio || 1, cw = c.clientWidth, ch = c.clientHeight;
+  if (!cw) return;
+  c.width = cw * dpr; c.height = ch * dpr;
+  const g = c.getContext('2d'); g.scale(dpr, dpr);
+  const L = 8, R = 8, T = 14, B = 26, W = cw - L - R, H = ch - T - B;
+  const lo = Math.min(0, ...pts.map(p => p.bal)), hi = Math.max(...pts.map(p => p.bal)) * 1.08;
+  const x = i => L + i / HORIZON * W, y = v => T + (hi - v) / (hi - lo || 1) * H;
+  const path = () => { g.beginPath(); pts.forEach((p, k) => k ? g.lineTo(x(p.i), y(p.bal)) : g.moveTo(x(p.i), y(p.bal))); };
+  // zone sous la ligne (dégradé)
+  const grad = g.createLinearGradient(0, T, 0, T + H); grad.addColorStop(0, 'rgba(27,127,140,.28)'); grad.addColorStop(1, 'rgba(27,127,140,0)');
+  path(); g.lineTo(x(HORIZON), y(0)); g.lineTo(x(0), y(0)); g.closePath(); g.fillStyle = grad; g.fill();
+  // ligne zéro
+  g.strokeStyle = '#c9d4dd'; g.setLineDash([4, 4]); g.lineWidth = 1; g.beginPath(); g.moveTo(L, y(0)); g.lineTo(L + W, y(0)); g.stroke(); g.setLineDash([]);
+  // ligne du solde
+  g.lineJoin = 'round'; g.lineWidth = 2.75; g.strokeStyle = '#1b7f8c'; path(); g.stroke();
+  // découvert en rouge
+  g.strokeStyle = '#c8372d'; g.lineWidth = 3.25; g.beginPath(); let on = false;
+  pts.forEach(p => { if (p.bal < 0) { on ? g.lineTo(x(p.i), y(p.bal)) : g.moveTo(x(p.i), y(p.bal)); on = true; } else on = false; }); g.stroke();
+  // repères : factures (ambre) et revenu (vert)
+  const dot = (i, col) => { const p = pts[i]; g.fillStyle = '#fff'; g.beginPath(); g.arc(x(i), y(p.bal), 6, 0, 7); g.fill(); g.fillStyle = col; g.beginPath(); g.arc(x(i), y(p.bal), 4, 0, 7); g.fill(); };
+  S.bills.forEach(b => { const p = pts.find(q => q.date === b.payment_date); if (p) dot(p.i, '#d98a1a'); });
+  const jump = pts.find((p, k) => k && p.bal - pts[k - 1].bal > 500); if (jump) dot(jump.i, '#1f9d6b');
+  dot(0, '#0b2540');
+  // axe des dates
+  g.fillStyle = '#64788a'; g.font = '11px Inter, system-ui'; g.textBaseline = 'alphabetic';
+  [[0, 'Today', 'left'], [15, null, 'center'], [30, null, 'center'], [45, null, 'right']].forEach(([i, lab, al]) => {
+    const d = new Date(+TODAY + i * DAY), t = lab || d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    g.textAlign = al; g.fillText(t, al === 'left' ? L : al === 'right' ? L + W : x(i), ch - 6);
+  });
+}
+window.addEventListener('resize', () => render());
 
 // --- Action : Prevent it ---
 $('prevent').onclick = async () => {
