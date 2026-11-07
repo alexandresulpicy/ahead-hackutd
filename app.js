@@ -174,7 +174,7 @@ async function clientPaid(amount) {
   const moves = [];
   if (RULES.tax) moves.push({ key: 'tax', name: 'tax jar', a: Math.round(amount * PREFS.taxRate) });
   if (RULES.bills) moves.push({ key: 'bills', name: 'bills envelope', a: Math.round(amount * RULES.billsPct) });
-  const entries = [{ k: 'in', t: `Client paid ${usd(amount)}`, s: wrote ? 'Deposit written to Capital One Nessie [D1]' : 'Recorded in the app (Nessie unreachable)' }];
+  const entries = [{ k: 'in', t: `Client paid ${usd(amount)}`, s: wrote ? 'Deposit written to Capital One Nessie [D1]' : 'Recorded in the app (Nessie did not accept the deposit)' }];
   for (const mv of moves) {
     S.checking -= mv.a; S.savings += mv.a; ENV[mv.key] += mv.a;
     entries.push({ k: 'move', t: `${usd(mv.a)} to your ${mv.name}`, s: `${mv.key === 'tax' ? Math.round(PREFS.taxRate * 100) : Math.round(RULES.billsPct * 100)}% of the payment, moved before you could spend it` });
