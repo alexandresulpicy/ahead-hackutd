@@ -372,7 +372,8 @@ const NO_ACTION = { type: 'none', from: 'none', to: 'none', amount: 0, label: ''
 function purchaseCheck(amt, m = metrics(+$('late').value)) {
   const lowAfter = Math.round(m.minC.bal - amt), free = Math.round(m.free);
   const verdict = amt > free || lowAfter < 0 ? 'no' : lowAfter < PREFS.cushion ? 'tight' : 'yes'; // découvert prévu = non
-  return { amount: amt, verdict, freeAfterTaxesAndBills: free, lowestBalanceAfterPurchase: lowAfter, lowestDate: nice(m.minC.date), cushion: PREFS.cushion };
+  const rent = txTags().find(t => /Rent/.test(t.text)) || txTags().find(t => t.tag[0] === 'B'); // la facture qui crée le point bas
+  return { amount: amt, verdict, freeAfterTaxesAndBills: free, lowestBalanceAfterPurchase: lowAfter, lowestDate: nice(m.minC.date), cushion: PREFS.cushion, citeTag: rent ? rent.tag : null };
 }
 function coachContext(q = '') {
   const m = metrics(+$('late').value), when = f => nice(f.out[Math.min(f.first, HORIZON)].date);
@@ -449,6 +450,8 @@ async function ask(q) {
     const res = await fetch('/api/coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: HIST.slice(-8), context: coachContext(q) }) });
     if (!res.ok) throw new Error(res.status);
     r = await res.json(); if (!r || typeof r.text !== 'string' || !r.text) throw new Error('empty');
+    const pc = coachContext(q).purchaseCheck; // achat : toujours montrer la transaction derrière le verdict
+    if (pc && pc.citeTag && !(r.cites || []).length) r.cites = [pc.citeTag];
     if (r.action && r.action.type === 'prevent') { const need = metrics(+$('late').value).need; r.action = need ? { ...r.action, amount: need, label: `Move ${usd(need)} to checking` } : NO_ACTION; }
   } catch { r = ruleCoach(q); }
   typing.remove(); addMsg('bot', r.text, { cites: r.cites || [], action: r.action }); HIST.push({ role: 'assistant', content: r.text }); setSuggestions(r.suggestions);
