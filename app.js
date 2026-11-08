@@ -284,7 +284,7 @@ async function clientPaid(amount) {
   const m = render();
   entries.push({ k: 'safe', t: `Safe to spend today: ${usd(before)} → ${usd(m.safe)}`, s: m.riskE ? 'A shortfall is still possible before your next payment.' : m.riskC ? 'No overdraft expected, but a late payment could still cause one.' : 'No overdraft projected, even if your next payment is late.' });
   logAction(entries);
-  $('payBtn').disabled = false; $('payNote').textContent = 'Done. Check Today, Plan and Activity: everything updated.';
+  $('payBtn').disabled = true; $('payNote').textContent = 'Done. Check Today, What-if and Activity. Undo or Reset to simulate another payment.';
 }
 async function undoPayment() {
   if (!LAST_PAY) return; const p = LAST_PAY; LAST_PAY = null;
@@ -292,15 +292,24 @@ async function undoPayment() {
   S.checking -= p.amount; p.moves.forEach(mv => { S.checking += mv.a; S.savings -= mv.a; ENV[mv.key] -= mv.a; });
   if (p.id) { try { await nessie(`/deposits/${p.id}`, 'DELETE'); } catch {} }
   if (p.tid) { try { await nessie(`/transfers/${p.tid}`, 'DELETE'); } catch {} }
-  render(); logAction([{ k: 'undo', t: `Reverted the ${usd(p.amount)} payment`, s: 'Deposit removed from Nessie' }]);
+  render(); $('payBtn').disabled = false; $('payNote').textContent = 'Payment reverted.';
+  logAction([{ k: 'undo', t: `Reverted the ${usd(p.amount)} payment`, s: 'Deposit removed from Nessie' }]);
 }
 async function resetDemo() { // supprime les paiements de démo restés dans Nessie
   $('resetBtn').disabled = true;
   const stale = S.deposits.filter(d => String(d.description).startsWith('Autopilot demo'));
   for (const d of stale) { if (d._id) { try { await nessie(`/deposits/${d._id}`, 'DELETE'); } catch {} } }
   S.deposits = S.deposits.filter(d => !String(d.description).startsWith('Autopilot demo'));
+  HOLD = true; GEN++; // pas de relecture pendant le nettoyage
+  try { // marqueurs de la liaison banque : paiement retardé + virements « Ahead prevent »
+    const [d, t] = await Promise.all([nessie(`/accounts/${CH}/deposits`), nessie(`/accounts/${SV}/transfers`)]);
+    for (const x of d.filter(isDelay)) { try { await nessie(`/deposits/${x._id}`, 'DELETE'); } catch {} }
+    for (const x of t.filter(isPrevent)) { try { await nessie(`/transfers/${x.id || x._id}`, 'DELETE'); } catch {} }
+  } catch {}
   Object.assign(S, { checking: demoData().checking, savings: demoData().savings }); ENV.tax = ENV.bills = 0; LAST_PAY = null; LOG.length = 0;
-  await load(); render(); $('resetBtn').disabled = false; $('payNote').textContent = 'Demo reset to your Nessie history.';
+  APPLIED = 0; pushShown = false; $('done').hidden = true; $('late').value = 0;
+  await load(); HOLD = false; GEN++; $('late').value = S.delay.weeks; render();
+  $('resetBtn').disabled = false; $('payBtn').disabled = false; $('payNote').textContent = 'Demo reset to your Nessie history.';
 }
 $('payVia').addEventListener('click', e => { const b = e.target.closest('button[data-via]'); if (!b) return; payVia = b.dataset.via; $('payVia').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
 $('payBtn').onclick = () => clientPaid(payAmount);
