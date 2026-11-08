@@ -256,6 +256,9 @@ function renderAutopilot(m = metrics(+$('late').value)) {
   $('ruleTaxT').textContent = `Tax jar · ${Math.round(PREFS.taxRate * 100)}% of every payment`;
   $('ruleBillsT').textContent = `Bills envelope · ${Math.round(RULES.billsPct * 100)}% of every payment`;
   $('ruleTax').checked = RULES.tax; $('ruleBills').checked = RULES.bills;
+  const tx = Math.round(payAmount * PREFS.taxRate), bl = Math.round(payAmount * RULES.billsPct);
+  $('ruleTaxS').textContent = `Money you will owe in taxes, set aside from each payment so you never spend it. On a ${usd(payAmount)} payment: ${usd(tx)} goes in the jar.`;
+  $('ruleBillsS').textContent = `Money for rent and bills due before your next payment, set aside automatically. On a ${usd(payAmount)} payment: ${usd(bl)} goes in the envelope.`;
   const bar = (name, saved, goal, cls) => `<div class="e ${cls}"><div><span>${name}</span><b>${usd(saved)} <span>of ${usd(goal)}</span></b></div><div class="track"><i style="width:${Math.min(100, goal ? saved / goal * 100 : 0)}%"></i></div></div>`;
   $('env').innerHTML = bar('Tax jar', ENV.tax, m.tax, 't') + bar('Bills envelope', ENV.bills, m.billsDue, 'b');
   $('undoBtn').hidden = !LAST_PAY;
@@ -315,7 +318,7 @@ $('payVia').addEventListener('click', e => { const b = e.target.closest('button[
 $('payBtn').onclick = () => clientPaid(payAmount);
 $('undoBtn').onclick = undoPayment;
 $('resetBtn').onclick = resetDemo;
-$('amts').addEventListener('click', e => { const b = e.target.closest('button[data-a]'); if (!b) return; payAmount = +b.dataset.a; $('amts').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
+$('amts').addEventListener('click', e => { const b = e.target.closest('button[data-a]'); if (!b) return; payAmount = +b.dataset.a; renderAutopilot(); $('amts').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
 $('ruleTax').onchange = e => { RULES.tax = e.target.checked; };
 $('ruleBills').onchange = e => { RULES.bills = e.target.checked; };
 
