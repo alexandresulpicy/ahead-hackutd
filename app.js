@@ -1,5 +1,5 @@
 // Ahead — interface : écrans, graphique, onboarding, notification, coach
-const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1b7f8c"/><path d="M10 9l7 7-7 7M17 9l7 7-7 7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const LOGO = '<img src="assets/logo-192.jpg" alt="" style="width:36px;height:36px;border-radius:10px;flex:none">';
 const TITLES = { today: 'Today', plan: 'What-if', whole: 'Whole picture', autopilot: 'Autopilot', coach: 'Coach', activity: 'Activity' };
 let view = 'today';
 
@@ -9,6 +9,8 @@ function show(v) {
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 'screen-' + v));
   document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === v));
   $('title').textContent = TITLES[v];
+  const hr = new Date().getHours();
+  $('hello').textContent = (hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening') + ', Alexandre';
   try { history.replaceState(null, '', '#' + v); } catch {}
   window.scrollTo(0, 0);
   requestAnimationFrame(drawChart);
@@ -66,8 +68,59 @@ function renderNextPay(m) {
     <div class="bar"><i style="left:${pct(m.ff.first)}%;width:${Math.max(2, pct(m.fc.first) - pct(m.ff.first))}%"></i><b style="left:${pct(m.fe.first)}%"></b></div>
     <div class="ends"><span>Today</span><span>+${span} days</span></div>`;
 }
+// --- Comptes : liste cliquable et fiche détaillée ---
+const mask = n => '•••• ' + String(n || '').slice(-4);
+function accountList() {
+  const num = t => (S.accts || []).find(x => x.type === t)?.account_number;
+  const l = t => S.loans.find(x => x.type === t);
+  return [
+    { id: 'checking', name: 'Checking', sub: mask(num('Checking') || ACCT_NUM.checking), ico: '◎', bal: S.checking },
+    { id: 'savings', name: 'Savings', sub: mask(num('Savings') || ACCT_NUM.savings), ico: '◈', bal: S.savings },
+    ...LINKED.map(a => ({ id: a.type.toLowerCase(), name: a.name, sub: 'Linked account', ico: a.type === 'IRA' ? '☼' : '▣', bal: a.balance })),
+    { id: 'card', name: 'Visa card', sub: mask(num('Credit Card') || ACCT_NUM.card), ico: '▭', bal: S.debt, debt: true },
+    ...S.loans.map(x => ({ id: 'loan-' + x.type, name: x.type === 'auto' ? 'Auto loan' : x.type === 'student' ? 'Student loan' : 'Loan', sub: usd(x.monthly_payment) + ' / month', ico: x.type === 'auto' ? '⛟' : '✎', bal: x.amount, debt: true })),
+  ];
+}
+function renderAccounts() {
+  const row = x => `<button class="ac ${x.debt ? 'debt' : ''}" data-acct="${x.id}"><span class="ico">${x.ico}</span><span class="nm">${x.name}<small>${x.sub}</small></span><span class="bal">${x.debt ? '-' : ''}${usd(x.bal)}</span></button>`;
+  const all = accountList();
+  $('acctStrip').innerHTML = all.filter(x => ['checking', 'savings', 'card'].includes(x.id)).map(row).join('') + `<button class="link" data-view="whole" style="margin:6px auto 0">See all ${all.length} accounts</button>`;
+  $('acctStrip').querySelector('[data-view]').onclick = () => show('whole');
+}
+function openAccount(id) {
+  const x = accountList().find(a => a.id === id); if (!x) return;
+  const tx = txAll(), li = (t, s, v, c = '') => `<li><span class="t">${t}<small>${s}</small></span><span class="a ${c}">${v}</span></li>`;
+  let body = '', note = x.sub;
+  if (id === 'checking') {
+    note = 'Where your clients pay you. Updated live from Nessie.';
+    body = [...tx].sort((p, q) => (q.upcoming ? 1 : 0) - (p.upcoming ? 1 : 0) || q.date.localeCompare(p.date)).slice(0, 14).map(t => li(t.label, t.upcoming ? 'Upcoming · ' + nice(t.date) : nice(t.date), (t.amt > 0 ? '+' : '-') + usd(Math.abs(t.amt)), t.amt > 0 ? 'in' : '')).join('');
+  } else if (id === 'savings') {
+    note = 'Your cushion. Ahead only moves it before an overdraft, never your tax jar.';
+    body = li('Tax jar', 'Protected', usd(ENV.tax)) + li('Bills envelope', 'Protected', usd(ENV.bills)) + li('Free to use', 'Can cover a shortfall', usd(freeSavings()), 'in')
+      + LOG.filter(e => e.k === 'move').slice(0, 5).map(e => li(e.t, e.at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }), '')).join('');
+  } else if (id === 'card') {
+    note = 'Minimum payment ' + usd(CARD_MIN.amt) + ' on the ' + CARD_MIN.day + 'nd of each month.';
+    body = li('Balance', 'Owed today', usd(S.debt)) + li('Minimum payment', 'Next: ' + nice('2026-11-' + CARD_MIN.day), usd(CARD_MIN.amt)) + li('Debt vs. income', 'Of one month of income', Math.round(S.debt / incomeModel().monthIncome * 100) + '%');
+  } else if (id.startsWith('loan-')) {
+    const l = S.loans.find(z => z.type === id.slice(5));
+    note = l.description;
+    body = li('Remaining', 'Principal', usd(l.amount)) + li('Monthly payment', 'Due on the ' + LOAN_DAY[l.type] + 'th', usd(l.monthly_payment)) + li('Months left', 'At this pace', Math.ceil(l.amount / l.monthly_payment) + ' mo');
+  } else {
+    note = 'Linked manually: Nessie has no CD or IRA, so Ahead tracks it with you.';
+    body = li('Balance', 'As entered', usd(x.bal), 'in') + li('Status', 'Not touched by Ahead', 'Locked');
+  }
+  $('sheetCard').innerHTML = `<div class="sh-head"><div><h3>${x.name}</h3><small>${x.sub}</small></div><button class="sh-x" data-close aria-label="Close">×</button></div>
+    <p class="sh-big">${x.debt ? '-' : ''}${usd(x.bal)}</p><p class="sh-note">${note}</p><ul class="activity">${body}</ul>`;
+  $('sheet').hidden = false;
+}
+document.addEventListener('click', e => {
+  const c = e.target.closest('[data-acct]'); if (c) return openAccount(c.dataset.acct);
+  if (e.target.closest('[data-close]')) $('sheet').hidden = true;
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $('sheet').hidden = true; });
 function renderWhole() {
-  const w = wholePicture(), row = (n, sub, v, cls = '') => `<li><span class="t">${n}<small>${sub}</small></span><span class="a ${cls}">${v}</span></li>`;
+  renderAccounts();
+  const w = wholePicture(), idOf = n => ({ Checking: 'checking', Savings: 'savings', '12-month CD': 'cd', 'Roth IRA': 'ira', 'Visa card': 'card', 'Auto loan': 'loan-auto', 'Federal student loan': 'loan-student' })[n], row = (n, sub, v, cls = '') => `<li ${idOf(n) ? `class="clickable" data-acct="${idOf(n)}"` : ''}><span class="t">${n}<small>${sub}</small></span><span class="a ${cls}">${v}</span></li>`;
   $('net').textContent = usd(w.net);
   $('netSub').textContent = `${usd(w.A)} owned, ${usd(w.D)} owed, across ${w.assets.length + w.debts.length} accounts`;
   $('assets').innerHTML = w.assets.map(([n, v, src]) => row(n, src, usd(v), 'in')).join('');
@@ -122,30 +175,30 @@ function drawChart() {
   const line = arr => { g.beginPath(); arr.forEach((v, k) => k ? g.lineTo(x(k), y(v)) : g.moveTo(x(k), y(v))); };
   // fourchette entre le cas prudent et le cas favorable
   g.beginPath(); cur.h.forEach((v, k) => k ? g.lineTo(x(k), y(v)) : g.moveTo(x(k), y(v)));
-  for (let k = cur.l.length - 1; k >= 0; k--) g.lineTo(x(k), y(cur.l[k])); g.closePath(); g.fillStyle = 'rgba(27,127,140,.16)'; g.fill();
+  for (let k = cur.l.length - 1; k >= 0; k--) g.lineTo(x(k), y(cur.l[k])); g.closePath(); g.fillStyle = 'rgba(63,208,208,.16)'; g.fill();
   // ligne zéro
-  g.strokeStyle = '#c9d4dd'; g.setLineDash([4, 4]); g.lineWidth = 1; g.beginPath(); g.moveTo(L, y(0)); g.lineTo(L + W, y(0)); g.stroke(); g.setLineDash([]);
+  g.strokeStyle = 'rgba(255,255,255,.22)'; g.setLineDash([4, 4]); g.lineWidth = 1; g.beginPath(); g.moveTo(L, y(0)); g.lineTo(L + W, y(0)); g.stroke(); g.setLineDash([]);
   // cas prudent (pointillés ambre), puis solde attendu (trait plein), découvert en rouge
-  g.lineJoin = 'round'; g.strokeStyle = 'rgba(217,138,26,.85)'; g.lineWidth = 1.5; g.setLineDash([5, 4]); line(cur.c); g.stroke(); g.setLineDash([]);
-  g.lineWidth = 2.75; g.strokeStyle = '#1b7f8c'; line(cur.e); g.stroke();
-  g.strokeStyle = '#c8372d'; g.lineWidth = 3.25; g.beginPath(); let on = false;
+  g.lineJoin = 'round'; g.strokeStyle = 'rgba(242,169,59,.85)'; g.lineWidth = 1.5; g.setLineDash([5, 4]); line(cur.c); g.stroke(); g.setLineDash([]);
+  g.lineWidth = 2.75; g.strokeStyle = '#3fd0d0'; line(cur.e); g.stroke();
+  g.strokeStyle = '#ff5c4d'; g.lineWidth = 3.25; g.beginPath(); let on = false;
   cur.e.forEach((v, k) => { if (v < 0) { on ? g.lineTo(x(k), y(v)) : g.moveTo(x(k), y(v)); on = true; } else on = false; }); g.stroke();
   // repères : factures (ambre), paiements attendus (vert), aujourd'hui (marine)
-  const dot = (i, col, r = 4) => { g.fillStyle = '#fff'; g.beginPath(); g.arc(x(i), y(cur.e[i]), r + 2, 0, 7); g.fill(); g.fillStyle = col; g.beginPath(); g.arc(x(i), y(cur.e[i]), r, 0, 7); g.fill(); };
-  meta.bills.forEach(b => dot(b.i, '#d98a1a')); meta.inc.forEach(i => dot(i, '#1f9d6b')); dot(0, '#0b2540');
+  const dot = (i, col, r = 4) => { g.fillStyle = '#0a1d36'; g.beginPath(); g.arc(x(i), y(cur.e[i]), r + 2, 0, 7); g.fill(); g.fillStyle = col; g.beginPath(); g.arc(x(i), y(cur.e[i]), r, 0, 7); g.fill(); };
+  meta.bills.forEach(b => dot(b.i, '#f2a93b')); meta.inc.forEach(i => dot(i, '#2fcf94')); dot(0, '#ffffff');
   // axe des dates
-  g.fillStyle = '#64788a'; g.font = '11px Inter, system-ui'; g.textBaseline = 'alphabetic';
+  g.fillStyle = '#8fa5ba'; g.font = '11px Inter, system-ui'; g.textBaseline = 'alphabetic';
   [[0, 'Today', 'left'], [15, null, 'center'], [30, null, 'center'], [45, null, 'right']].forEach(([i, lab, al]) => {
     g.textAlign = al; g.fillText(lab || nice(meta.dates[i]), al === 'left' ? L : al === 'right' ? L + W : x(i), ch - 8);
   });
   // survol : repère + bulle date / solde attendu / fourchette
   if (hover !== null) {
     const v = cur.e[hover], px = x(hover), py = y(v);
-    g.strokeStyle = 'rgba(11,37,64,.25)'; g.lineWidth = 1; g.beginPath(); g.moveTo(px, T); g.lineTo(px, T + H); g.stroke();
-    dot(hover, v < 0 ? '#c8372d' : '#1b7f8c', 5);
+    g.strokeStyle = 'rgba(255,255,255,.3)'; g.lineWidth = 1; g.beginPath(); g.moveTo(px, T); g.lineTo(px, T + H); g.stroke();
+    dot(hover, v < 0 ? '#ff5c4d' : '#3fd0d0', 5);
     const label = `${nice(meta.dates[hover])}  ${usd(v)}  (${usd(cur.l[hover])} to ${usd(cur.h[hover])})`;
     g.font = '600 12px Inter, system-ui'; const tw = g.measureText(label).width + 20, bx = Math.min(Math.max(px - tw / 2, L), L + W - tw), by = Math.max(py - 40, 2);
-    g.fillStyle = '#0b2540'; g.beginPath(); g.roundRect(bx, by, tw, 26, 8); g.fill();
+    g.fillStyle = '#16365f'; g.beginPath(); g.roundRect(bx, by, tw, 26, 8); g.fill();
     g.fillStyle = '#fff'; g.textAlign = 'left'; g.fillText(label, bx + 10, by + 17);
   }
 }
@@ -310,6 +363,13 @@ $('askForm').onsubmit = e => { e.preventDefault(); const q = $('q').value.trim()
 $('chips').addEventListener('click', e => { const b = e.target.closest('button[data-q]'); if (b) ask(b.dataset.q); });
 addMsg('bot', "Hi, I'm Ahead. Ask me about your money. I'll show you the exact transactions behind every answer.");
 
+// --- Écran d'ouverture : retiré après l'animation, ou au tap ; ?skip le supprime (tests) ---
+(() => {
+  const sp = $('splash'), done = () => sp.remove();
+  if (new URLSearchParams(location.search).has('skip')) return done();
+  if (new URLSearchParams(location.search).has('hold')) return; // test : garder l'écran d'ouverture
+  sp.addEventListener('click', done); setTimeout(done, 3950);
+})();
 // --- Démarrage ---
 load().then(live => {
   $('mode').textContent = live ? 'Nessie live' : 'Simulated data';

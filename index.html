@@ -4,15 +4,17 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Ahead — safe to spend</title>
 <meta name="description" content="Ahead turns an irregular income into one number you can safely spend today, and acts days before an overdraft.">
-<meta name="theme-color" content="#0b2540">
+<meta name="theme-color" content="#06101f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="assets/logo-192.jpg">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.jpg">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="app">
   <aside class="rail">
-    <div class="brand"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1b7f8c"/><stop offset="1" stop-color="#123b5e"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M10 9l7 7-7 7M17 9l7 7-7 7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><h1>Ahead</h1></div>
+    <div class="brand"><img class="logo" src="assets/logo-192.jpg" alt="Ahead"><div><h1>Ahead</h1><small>Anticipate &amp; Secure</small></div></div>
     <nav class="nav" id="nav">
       <button data-view="today" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Today</span></button>
       <button data-view="plan"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-9M15 6h6v6"/></svg><span>What-if</span></button>
@@ -21,15 +23,16 @@
       <button data-view="coach"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span>Coach</span></button>
       <button data-view="activity"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Activity</span></button>
     </nav>
+    <div class="me"><img src="assets/alexandre.jpg" alt=""><div><b>Alexandre</b><small>Freelance · Elite Frame</small></div></div>
     <p class="rail-foot">HackUTD 2026<br>Nessie · Claude Haiku</p>
   </aside>
 
   <div class="content">
     <header class="top">
-      <h2 id="title">Today</h2>
+      <div class="who"><img class="av" src="assets/alexandre.jpg" alt="Alexandre"><div><small id="hello">Welcome back, Alexandre</small><h2 id="title">Today</h2></div></div>
       <div class="accounts">
-        <div class="acct"><span>Checking</span><b id="acctCh">$0</b></div>
-        <div class="acct"><span>Savings</span><b id="acctSv">$0</b></div>
+        <button class="acct" data-acct="checking"><span>Checking</span><b id="acctCh">$0</b></button>
+        <button class="acct" data-acct="savings"><span>Savings</span><b id="acctSv">$0</b></button>
         <span id="mode" class="pill"></span>
       </div>
     </header>
@@ -53,6 +56,7 @@
               <button id="prevent">Prevent it</button>
               <p id="done" class="done" hidden></p>
             </section>
+            <section class="card"><p class="label">Your accounts</p><div class="accts" id="acctStrip"></div></section>
           </div>
           <div class="stack">
             <section class="card"><p class="label">Next payment</p><div id="nextPay" class="nextpay"></div></section>
@@ -155,6 +159,13 @@
 
 <div id="push" class="push" hidden role="alert"></div>
 <div id="onboard" class="onboard" hidden></div>
+
+<div id="sheet" class="sheet" hidden><div class="sheet-bg" data-close></div><div class="sheet-card" role="dialog" aria-modal="true" id="sheetCard"></div></div>
+
+<div id="splash" class="splash" aria-hidden="true">
+  <div class="sp-logo"><img src="assets/splash.jpg" alt=""></div>
+  <div class="sp-welcome"><img class="sp-av" src="assets/alexandre.jpg" alt=""><p>Welcome back</p><h2>Alexandre</h2></div>
+</div>
 
 <script src="engine.js"></script>
 <script src="app.js"></script>

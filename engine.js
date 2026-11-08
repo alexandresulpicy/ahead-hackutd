@@ -43,6 +43,7 @@ function demoData() { // miroir du compte Nessie : 90 jours de freelance, revenu
   };
 }
 let S = demoData(), live = false;
+const ACCT_NUM = { checking: '8119703152899929', savings: '4631914452509412', card: '5884899707034995' }; // repli hors-ligne (numéros Nessie de test)
 // Comptes externes liés à la main (Nessie n'a ni CD ni IRA) : c'est ce que fait un vrai agrégateur
 const LINKED = [{ type: 'CD', name: '12-month CD', bank: 'linked manually', balance: 3000 }, { type: 'IRA', name: 'Roth IRA', bank: 'linked manually', balance: 4200 }];
 const LOAN_DAY = { auto: 25, student: 28 }, CARD_MIN = { day: 22, amt: 35 }; // jours d'échéance : Nessie ne les fournit pas
@@ -51,6 +52,7 @@ async function load() {
   try {
     const [d, p, b, a, l] = await Promise.all([nessie(`/accounts/${CH}/deposits`), nessie(`/accounts/${CH}/purchases`), nessie(`/accounts/${CH}/bills`), nessie(`/customers/${CUSTOMER}/accounts`), nessie(`/accounts/${CH}/loans`).catch(() => S.loans)]);
     const by = t => a.find(x => x.type === t);
+    S.accts = a;
     Object.assign(S, { deposits: d, purchases: p, bills: b, loans: l.length ? l : S.loans, checking: by('Checking').balance, savings: by('Savings').balance, debt: by('Credit Card')?.balance || 0 });
     live = true;
   } catch { live = false; } // pas de proxy en local : démo simulée
