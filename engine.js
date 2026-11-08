@@ -34,6 +34,7 @@ function demoData() { // miroir du compte Nessie : 90 jours de freelance, revenu
   for (let i = 89; i >= 1; i--) cats.forEach(([n, lo, hi, p]) => { if (rnd() < p) purchases.push({ purchase_date: iso(new Date(+TODAY - i * DAY)), amount: lo + Math.floor(rnd() * (hi - lo + 1)), description: n }); });
   return {
     checking: 900, savings: 2500, debt: 640, purchases,
+    loans: [{ type: 'auto', amount: 6400, monthly_payment: 215, description: 'Auto loan - Honda Civic, 36 months left' }, { type: 'student', amount: 14500, monthly_payment: 120, description: 'Federal student loan' }],
     deposits: [['2026-08-14', 2400, 'Wedding film - Client B'], ['2026-08-28', 1600, 'Brand video - Client C'], ['2026-09-22', 300, 'Photo edit - Client D'],
       ['2026-10-09', 1500, 'Product shoot - Client E'], ['2026-10-27', 700, 'Reel editing - Client F'], ['2026-11-01', 1200, 'Client payment - video shoot']]
       .map(([transaction_date, amount, description]) => ({ transaction_date, amount, description })),
@@ -42,12 +43,15 @@ function demoData() { // miroir du compte Nessie : 90 jours de freelance, revenu
   };
 }
 let S = demoData(), live = false;
+// Comptes externes liés à la main (Nessie n'a ni CD ni IRA) : c'est ce que fait un vrai agrégateur
+const LINKED = [{ type: 'CD', name: '12-month CD', bank: 'linked manually', balance: 3000 }, { type: 'IRA', name: 'Roth IRA', bank: 'linked manually', balance: 4200 }];
+const LOAN_DAY = { auto: 25, student: 28 }, CARD_MIN = { day: 22, amt: 35 }; // jours d'échéance : Nessie ne les fournit pas
 
 async function load() {
   try {
-    const [d, p, b, a] = await Promise.all([nessie(`/accounts/${CH}/deposits`), nessie(`/accounts/${CH}/purchases`), nessie(`/accounts/${CH}/bills`), nessie(`/customers/${CUSTOMER}/accounts`)]);
+    const [d, p, b, a, l] = await Promise.all([nessie(`/accounts/${CH}/deposits`), nessie(`/accounts/${CH}/purchases`), nessie(`/accounts/${CH}/bills`), nessie(`/customers/${CUSTOMER}/accounts`), nessie(`/accounts/${CH}/loans`).catch(() => S.loans)]);
     const by = t => a.find(x => x.type === t);
-    Object.assign(S, { deposits: d, purchases: p, bills: b, checking: by('Checking').balance, savings: by('Savings').balance, debt: by('Credit Card')?.balance || 0 });
+    Object.assign(S, { deposits: d, purchases: p, bills: b, loans: l.length ? l : S.loans, checking: by('Checking').balance, savings: by('Savings').balance, debt: by('Credit Card')?.balance || 0 });
     live = true;
   } catch { live = false; } // pas de proxy en local : démo simulée
   return live;
@@ -117,3 +121,18 @@ function txAll() {
   ];
 }
 const txTags = () => txAll().map(t => ({ tag: t.tag, text: `${t.date} ${t.amt > 0 ? '+' : '-'}${usd(Math.abs(t.amt))} ${t.label}` }));
+
+// --- Vue 360° : valeur nette et échéancier de toutes les obligations ---
+function wholePicture() {
+  const assets = [['Checking', S.checking, 'Nessie'], ['Savings', S.savings, 'Nessie'], ...LINKED.map(a => [a.name, a.balance, a.bank])];
+  const debts = [['Visa card', S.debt, 'Nessie', 'Credit Card'], ...S.loans.map(l => [l.description.split(' - ')[0].replace(/ \(.*/, ''), l.amount, 'Nessie loans', l.type])];
+  const A = assets.reduce((s, x) => s + x[1], 0), D = debts.reduce((s, x) => s + x[1], 0);
+  const dues = [];
+  for (let i = 1; i <= HORIZON; i++) {
+    const date = iso(new Date(+TODAY + i * DAY)), day = +date.slice(8, 10);
+    S.bills.forEach(b => { if (b.recurring_date ? b.recurring_date === day : b.payment_date === date) dues.push({ date, name: b.nickname, kind: 'Bill', amt: b.payment_amount }); });
+    S.loans.forEach(l => { if (LOAN_DAY[l.type] === day) dues.push({ date, name: l.type === 'auto' ? 'Auto loan' : l.type === 'student' ? 'Student loan' : 'Loan', kind: 'Loan', amt: l.monthly_payment }); });
+    if (CARD_MIN.day === day) dues.push({ date, name: 'Visa minimum', kind: 'Card', amt: CARD_MIN.amt });
+  }
+  return { assets, debts, A, D, net: A - D, dues, dueTotal: dues.reduce((s, d) => s + d.amt, 0) };
+}

@@ -16,6 +16,7 @@
     <nav class="nav" id="nav">
       <button data-view="today" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Today</span></button>
       <button data-view="plan"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-9M15 6h6v6"/></svg><span>Plan</span></button>
+      <button data-view="whole"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 4"/></svg><span>360°</span></button>
       <button data-view="autopilot"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><span>Autopilot</span></button>
       <button data-view="coach"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span>Coach</span></button>
       <button data-view="activity"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Activity</span></button>
@@ -72,6 +73,20 @@
         </section>
       </section>
 
+      <!-- Whole picture -->
+      <section class="screen" id="screen-whole">
+        <div class="grid2">
+          <div class="stack">
+            <div class="hero"><p class="label">Net worth</p><p class="big" id="net">$0</p><p class="sub" id="netSub"></p></div>
+            <section class="card"><p class="label">Everything you own</p><ul class="activity" id="assets"></ul></section>
+            <section class="card"><p class="label">Everything you owe</p><ul class="activity" id="debts"></ul></section>
+          </div>
+          <div class="stack">
+            <section class="card"><p class="label">Next 45 days: every obligation</p><p class="muted" id="duesSub"></p><ul class="activity" id="dues"></ul></section>
+          </div>
+        </div>
+      </section>
+
       <!-- Autopilot -->
       <section class="screen" id="screen-autopilot">
         <div class="grid2">
@@ -125,6 +140,7 @@
 <nav class="tabbar" id="tabbar" aria-label="Main">
   <button data-view="today" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Today</span></button>
   <button data-view="plan"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-9M15 6h6v6"/></svg><span>Plan</span></button>
+  <button data-view="whole"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 4"/></svg><span>360°</span></button>
       <button data-view="autopilot"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><span>Autopilot</span></button>
   <button data-view="coach"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span>Coach</span></button>
   <button data-view="activity"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Activity</span></button>

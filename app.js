@@ -1,6 +1,6 @@
 // Ahead — interface : écrans, graphique, onboarding, notification, coach
 const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1b7f8c"/><path d="M10 9l7 7-7 7M17 9l7 7-7 7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const TITLES = { today: 'Today', plan: 'Plan', autopilot: 'Autopilot', coach: 'Coach', activity: 'Activity' };
+const TITLES = { today: 'Today', plan: 'Plan', whole: 'Whole picture', autopilot: 'Autopilot', coach: 'Coach', activity: 'Activity' };
 let view = 'today';
 
 function show(v) {
@@ -42,6 +42,7 @@ function render() {
     .map(([n, v]) => `<div>${n}<b>${v}</b></div>`).join('');
   renderNextPay(m);
   renderActivity();
+  renderWhole();
   renderAutopilot(m);
   setChart(m);
   return m;
@@ -52,6 +53,15 @@ function renderNextPay(m) {
     <div class="rng">Could land as early as ${nice(day(m.ff))}, or as late as ${nice(day(m.fc))}. Typically ${usd(m.M.a.expected)}.</div>
     <div class="bar"><i style="left:${pct(m.ff.first)}%;width:${Math.max(2, pct(m.fc.first) - pct(m.ff.first))}%"></i><b style="left:${pct(m.fe.first)}%"></b></div>
     <div class="ends"><span>Today</span><span>+${span} days</span></div>`;
+}
+function renderWhole() {
+  const w = wholePicture(), row = (n, sub, v, cls = '') => `<li><span class="t">${n}<small>${sub}</small></span><span class="a ${cls}">${v}</span></li>`;
+  $('net').textContent = usd(w.net);
+  $('netSub').textContent = `${usd(w.A)} owned, ${usd(w.D)} owed, across ${w.assets.length + w.debts.length} accounts`;
+  $('assets').innerHTML = w.assets.map(([n, v, src]) => row(n, src, usd(v), 'in')).join('');
+  $('debts').innerHTML = w.debts.map(([n, v, src, t]) => row(n, `${t} · ${src}`, usd(v))).join('');
+  $('duesSub').textContent = `${usd(w.dueTotal)} due in total: bills, loans and card.`;
+  $('dues').innerHTML = w.dues.map(d => row(d.name, `${nice(d.date)} · ${d.kind}`, '-' + usd(d.amt))).join('');
 }
 function renderActivity() {
   const all = txAll(), up = all.filter(t => t.upcoming), past = all.filter(t => !t.upcoming).sort((a, b) => b.date.localeCompare(a.date));

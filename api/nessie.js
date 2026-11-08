@@ -1,10 +1,10 @@
 // Vercel serverless : proxy Nessie. La clé reste côté serveur (variable d'environnement NESSIE_API_KEY).
-// Liste blanche stricte : lecture des clients/comptes, écriture seulement de dépôts et de virements,
+// Liste blanche stricte : lecture des clients/comptes, écriture seulement de dépôts, de virements et de prêts,
 // suppression seulement d'un dépôt (pour annuler un paiement de démo).
 const HOSTS = ['https://api.nessieisreal.com', 'https://prod-api.nessieisreal.com'];
 const ALLOWED = {
-  GET: /^\/(customers|accounts)[\w\/-]*$/,
-  POST: /^\/accounts\/[\w-]+\/(deposits|transfers)$/,
+  GET: /^\/(customers|accounts|merchants)[\w\/-]*$/,
+  POST: /^\/accounts\/[\w-]+\/(deposits|transfers|loans)$/,
   DELETE: /^\/deposits\/[\w-]+$/,
 };
 export default async function handler(req, res) {

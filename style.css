@@ -170,7 +170,7 @@ canvas{display:block;width:100%;height:clamp(300px,52vh,520px);margin-top:14px;c
   .grid2{grid-template-columns:1fr}
   .acct:first-child{display:flex}.acct:nth-child(2){display:none}
   main{padding-bottom:96px}
-  .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
+  .tabbar{display:grid;grid-template-columns:repeat(6,1fr);position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
   .tabbar button{flex-direction:column;gap:3px;padding:7px 4px;color:var(--mute);font-size:11px;text-align:center;align-items:center}
   .tabbar button.on{color:var(--teal)}
   canvas{height:clamp(260px,42vh,420px)}
