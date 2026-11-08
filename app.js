@@ -368,7 +368,7 @@ const NO_ACTION = { type: 'none', from: 'none', to: 'none', amount: 0, label: ''
 // Verdict d'achat calculé ici (jamais par l'IA) : tient dans le libre après impôts/factures ET le point bas prudent reste au-dessus du coussin
 function purchaseCheck(amt, m = metrics(+$('late').value)) {
   const lowAfter = Math.round(m.minC.bal - amt), free = Math.round(m.free);
-  const verdict = amt > free ? 'no' : lowAfter < PREFS.cushion ? 'tight' : 'yes';
+  const verdict = amt > free || lowAfter < 0 ? 'no' : lowAfter < PREFS.cushion ? 'tight' : 'yes'; // découvert prévu = non
   return { amount: amt, verdict, freeAfterTaxesAndBills: free, lowestBalanceAfterPurchase: lowAfter, lowestDate: nice(m.minC.date), cushion: PREFS.cushion };
 }
 function coachContext(q = '') {
@@ -401,6 +401,7 @@ function ruleCoach(q) { // repli sans IA : court, varié selon l'état, même fo
   if (amt) { const c = purchaseCheck(amt, m);
     return c.verdict === 'yes' ? say(`Yes, ${usd(amt)} fits: ${usd(c.freeAfterTaxesAndBills)} free after taxes and bills ${cite('B', 1)}, and you'd stay at ${usd(c.lowestBalanceAfterPurchase)} at your lowest.`)
       : c.verdict === 'tight' ? say(`Tight: ${usd(amt)} fits your free money, but your lowest balance would drop to ${usd(c.lowestBalanceAfterPurchase)} on ${c.lowestDate} ${cite('B', 1)}. A smaller amount is safer.`)
+      : c.lowestBalanceAfterPurchase < 0 ? say(`Not yet: ${usd(amt)} would push checking to ${usd(c.lowestBalanceAfterPurchase)} on ${c.lowestDate} ${cite('B', 1)}. Wait for your next payment or pick a smaller amount.`)
       : say(`Not yet: ${usd(amt)} is more than your ${usd(c.freeAfterTaxesAndBills)} free after taxes ${cite('D', 1)} and bills ${cite('B', 1)}.`); }
   return say(`You can spend ${usd(m.safe)} a day safely, and you're ${days} days ahead.`);
 }
