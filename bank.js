@@ -105,6 +105,7 @@ async function tick() {
   try { await sync(); synced = new Date(); $('pulse').className = 'pulse on'; }
   catch { $('pulse').className = 'pulse off'; }
   $('syncTxt').textContent = synced ? `Phone ↔ Nessie ↔ Bank · synced ${synced.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}` : 'Nessie unreachable · demo data';
+  const s = endpointStats(); $('epTxt').textContent = `${s.count} Nessie endpoints · ${s.calls} calls`;
   render();
 }
 load().then(ok => {

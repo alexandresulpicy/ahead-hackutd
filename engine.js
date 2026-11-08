@@ -17,10 +17,14 @@ const PREFS = (() => {
 function savePrefs() { try { localStorage.setItem('ahead_prefs', JSON.stringify(PREFS)); } catch {} }
 
 // --- Couche données : Nessie via /api/nessie, repli sur données simulées (même histoire) ---
+// Registre des endpoints Nessie réellement appelés (le badge « N endpoints » est calculé ici, rien n'est inventé)
+const ENDPOINTS = {};
+const epKey = (m, p) => m + ' ' + p.replace(/[0-9a-f]{8}-[0-9a-f-]{27}/g, '{id}').replace(/[0-9a-f]{24}/g, '{id}');
 async function nessie(path, method = 'GET', body) {
   const r = await fetch('/api/nessie?path=' + encodeURIComponent(path), {
     method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
   if (!r.ok) throw new Error(r.status);
+  const k = epKey(method, path); (ENDPOINTS[k] = ENDPOINTS[k] || { n: 0 }).n++;
   const t = await r.text(); return t ? JSON.parse(t) : {};
 }
 // Autopilot : enveloppes protégées (comptées dans l'épargne, jamais utilisées pour couvrir un découvert) et règles
@@ -34,6 +38,7 @@ function demoData() { // miroir du compte Nessie : 90 jours de freelance, revenu
   for (let i = 89; i >= 1; i--) cats.forEach(([n, lo, hi, p]) => { if (rnd() < p) purchases.push({ purchase_date: iso(new Date(+TODAY - i * DAY)), amount: lo + Math.floor(rnd() * (hi - lo + 1)), description: n }); });
   return {
     checking: 900, savings: 2500, debt: 640, purchases,
+    merchants: [['Campus Coffee', 'Coffee'], ['Neighborhood Market', 'Groceries'], ['Taco Corner', 'Eating out'], ['Quick Fuel', 'Gas'], ['Camera Depot', 'Equipment']].map(([name, category]) => ({ name, category })),
     loans: [{ type: 'auto', amount: 6400, monthly_payment: 215, description: 'Auto loan - Honda Civic, 36 months left' }, { type: 'student', amount: 14500, monthly_payment: 120, description: 'Federal student loan' }],
     deposits: [['2026-08-14', 1200, 'Brand video - Elite Frame'], ['2026-08-28', 1200, 'Tennis coaching'], ['2026-09-22', 120, 'Photo edit - Elite Frame'],
       ['2026-10-09', 3800, 'Wedding film - Elite Frame'], ['2026-10-27', 1200, 'Product shoot - Elite Frame'], ['2026-11-01', 300, 'Tennis coaching']]
@@ -43,6 +48,7 @@ function demoData() { // miroir du compte Nessie : 90 jours de freelance, revenu
   };
 }
 let S = demoData(), live = false;
+const merchantFor = desc => (S.merchants.find(m => m.category === desc) || {}).name || desc;
 const ACCT_NUM = { checking: '8119703152899929', savings: '4631914452509412', card: '5884899707034995' }; // repli hors-ligne (numéros Nessie de test)
 // Comptes externes liés à la main (Nessie n'a ni CD ni IRA) : c'est ce que fait un vrai agrégateur
 const LINKED = [{ type: 'CD', name: '12-month CD', bank: 'linked manually', balance: 3000 }, { type: 'IRA', name: 'Roth IRA', bank: 'linked manually', balance: 4200 }];
@@ -50,10 +56,10 @@ const LOAN_DAY = { auto: 25, student: 28 }, CARD_MIN = { day: 22, amt: 35 }; // 
 
 async function load() {
   try {
-    const [d, p, b, a, l, t] = await Promise.all([nessie(`/accounts/${CH}/deposits`), nessie(`/accounts/${CH}/purchases`), nessie(`/accounts/${CH}/bills`), nessie(`/customers/${CUSTOMER}/accounts`), nessie(`/accounts/${CH}/loans`).catch(() => S.loans), nessie(`/accounts/${SV}/transfers`).catch(() => [])]);
+    const [d, p, b, a, l, t, mer] = await Promise.all([nessie(`/accounts/${CH}/deposits`), nessie(`/accounts/${CH}/purchases`), nessie(`/accounts/${CH}/bills`), nessie(`/customers/${CUSTOMER}/accounts`), nessie(`/accounts/${CH}/loans`).catch(() => S.loans), nessie(`/accounts/${SV}/transfers`).catch(() => []), nessie('/merchants').catch(() => [])]);
     const by = t => a.find(x => x.type === t);
     S.accts = a;
-    APPLIED = 0; S.delay = delayIn(d); S.transfers = t;
+    APPLIED = 0; S.delay = delayIn(d); S.transfers = t; if (mer.length) S.merchants = mer;
     Object.assign(S, { deposits: d.filter(x => !isDelay(x)), purchases: p, bills: b, loans: l.length ? l : S.loans, checking: by('Checking').balance, savings: by('Savings').balance, debt: by('Credit Card')?.balance || 0 });
     applyPrevented(preventedIn(t));
     live = true;
@@ -140,7 +146,7 @@ function txAll() {
   const desc = (a, k) => [...a].sort((x, y) => y[k].localeCompare(x[k]));
   return [
     ...desc(S.deposits, 'transaction_date').map((d, i) => ({ tag: 'D' + (i + 1), date: d.transaction_date, label: d.description, amt: +d.amount })),
-    ...desc(S.purchases, 'purchase_date').slice(0, 15).map((p, i) => ({ tag: 'P' + (i + 1), date: p.purchase_date, label: p.description, amt: -p.amount })),
+    ...desc(S.purchases, 'purchase_date').slice(0, 15).map((p, i) => ({ tag: 'P' + (i + 1), date: p.purchase_date, label: merchantFor(p.description), cat: p.description, amt: -p.amount })),
     ...S.bills.map((b, i) => ({ tag: 'B' + (i + 1), date: b.payment_date, label: `${b.nickname} (monthly, day ${b.recurring_date || +b.payment_date.slice(8)})`, amt: -b.payment_amount, upcoming: true })),
   ];
 }
@@ -160,3 +166,6 @@ function wholePicture() {
   }
   return { assets, debts, A, D, net: A - D, dues, dueTotal: dues.reduce((s, d) => s + d.amt, 0) };
 }
+
+// Badge : endpoints Nessie distincts réellement utilisés dans cette session
+const endpointStats = () => { const list = Object.entries(ENDPOINTS).map(([k, v]) => ({ k, n: v.n })).sort((a, b) => a.k.localeCompare(b.k)); return { count: list.length, calls: list.reduce((s, x) => s + x.n, 0), list }; };

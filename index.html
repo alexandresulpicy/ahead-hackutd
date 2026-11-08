@@ -33,7 +33,7 @@
       <div class="accounts">
         <button class="acct" data-acct="checking"><span>Checking</span><b id="acctCh">$0</b></button>
         <button class="acct" data-acct="savings"><span>Savings</span><b id="acctSv">$0</b></button>
-        <span id="mode" class="pill"></span>
+        <button id="mode" class="pill" type="button"></button>
       </div>
     </header>
 
@@ -113,6 +113,7 @@
             </section>
             <section class="card">
               <p class="label">Try it: simulate a payment</p>
+              <div class="chips" id="payVia"><button type="button" data-via="deposit" class="on">Bank deposit</button><button type="button" data-via="p2p">P2P transfer</button></div>
               <div class="amts" id="amts">
                 <button type="button" data-a="800">$800</button><button type="button" data-a="1500" class="on">$1,500</button><button type="button" data-a="2400">$2,400</button>
               </div>
@@ -142,6 +143,7 @@
 
       <!-- Activity -->
       <section class="screen" id="screen-activity">
+        <section class="card"><p class="label">Where your money goes · last 60 days</p><div class="merch" id="merch"></div></section>
         <section class="card"><p class="label">Activity</p><ul class="activity" id="activity"></ul></section>
       </section>
     </main>
