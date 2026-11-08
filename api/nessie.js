@@ -5,7 +5,7 @@ const HOSTS = ['https://api.nessieisreal.com', 'https://prod-api.nessieisreal.co
 const ALLOWED = {
   GET: /^\/(customers|accounts|merchants)[\w\/-]*$/,
   POST: /^\/accounts\/[\w-]+\/(deposits|transfers|loans)$/,
-  DELETE: /^\/deposits\/[\w-]+$/,
+  DELETE: /^\/(deposits|transfers)\/[\w-]+$/,
 };
 export default async function handler(req, res) {
   const path = String(req.query.path || '');

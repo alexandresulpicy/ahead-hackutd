@@ -287,3 +287,60 @@ li.clickable{cursor:pointer;border-radius:10px;transition:background .15s}li.cli
 @keyframes avPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
 @keyframes spOut{to{opacity:0;visibility:hidden}}
 @media (prefers-reduced-motion:reduce){.splash{animation:spOut .3s ease .6s forwards!important}.sp-logo img{animation:none;opacity:1}.sp-welcome{display:none}}
+
+/* ===== Ahead for Banks (console) ===== */
+.bk-wrap{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:22px clamp(16px,3vw,36px) 40px}
+.bk-top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.bk-for{font-weight:500;color:var(--acc)}
+.bk-sync{display:flex;align-items:center;gap:9px;padding:8px 14px;border-radius:99px;background:rgba(255,255,255,.06);border:1px solid var(--line);font-size:12.5px;color:var(--mute)}
+.pulse{width:9px;height:9px;border-radius:50%;background:var(--mute)}
+.pulse.on{background:var(--green);box-shadow:0 0 0 0 rgba(47,207,148,.6);animation:ping 1.6s infinite}
+.pulse.off{background:var(--amber)}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(47,207,148,.55)}100%{box-shadow:0 0 0 10px rgba(47,207,148,0)}}
+.bk-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.bk-kpi b{display:block;margin-top:6px;font-size:30px;font-weight:700;color:var(--head);letter-spacing:-.02em}
+.bk-kpi small{color:var(--mute);font-size:12.5px}
+.bk-kpi.win{border-color:rgba(47,207,148,.35)}.bk-kpi.win b{color:var(--green)}
+.bk-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.bk-main,.bk-side{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;min-width:0}
+.bk-who{display:flex;align-items:center;gap:12px}
+.bk-who img{width:48px;height:48px;border-radius:50%;object-fit:cover;object-position:50% 18%;box-shadow:0 0 0 2px var(--acc)}
+.bk-who b{display:block;font-size:17px;color:var(--head)}.bk-who small{color:var(--mute);font-size:12.5px}
+.live{margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--acc);background:rgba(63,208,208,.12);border:1px solid rgba(63,208,208,.3)}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--acc);animation:blink 1.2s infinite}
+.live.sm{margin-left:8px;padding:2px 7px;font-size:9.5px}
+.bk-vs{display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:end;margin:18px 0 8px}
+.bk-big{margin:4px 0 0;font-size:clamp(40px,5vw,64px);font-weight:700;letter-spacing:-.03em;line-height:1;color:#fff}
+.bk-line{margin:4px 0 14px;font-size:15px;color:var(--ink);max-width:70ch}
+.bk-act{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid var(--line);margin-bottom:10px}
+.bk-act b{font-size:16px;color:var(--head)}
+.bk-spot{transition:border-color .4s,box-shadow .4s}
+.bk-spot.risk{border-color:rgba(255,92,77,.55);box-shadow:var(--shadow),0 0 0 4px rgba(255,92,77,.12),0 0 60px rgba(255,92,77,.15)}
+.bk-spot.risk .bk-big{color:var(--red);text-shadow:0 0 40px rgba(255,92,77,.35)}
+.bk-spot.saved{border-color:rgba(47,207,148,.55);box-shadow:var(--shadow),0 0 0 4px rgba(47,207,148,.12),0 0 60px rgba(47,207,148,.18)}
+.bk-spot.saved .bk-big{color:var(--green);text-shadow:0 0 40px rgba(47,207,148,.35);animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+.wait{display:inline-flex;gap:3px;margin-right:6px;vertical-align:middle}.wait i{width:5px;height:5px;border-radius:50%;background:var(--acc);animation:blink 1s infinite}.wait i:nth-child(2){animation-delay:.15s}.wait i:nth-child(3){animation-delay:.3s}
+.chip{display:inline-block;margin:0;padding:4px 10px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap;background:rgba(255,255,255,.07);color:var(--ink);border:1px solid var(--line)}
+.chip.ok{color:#b8c7d6}.chip.mid{color:#d9c38a}.chip.bad{color:#f2a93b;border-color:rgba(242,169,59,.35);background:rgba(242,169,59,.08)}
+.chip.v-ok{color:var(--acc);border-color:rgba(63,208,208,.3)}.chip.v-watch{color:#d9c38a}
+.chip.v-risk{color:#ff8a7e;border-color:rgba(255,92,77,.4);background:rgba(255,92,77,.1)}
+.chip.v-saved{color:var(--green);border-color:rgba(47,207,148,.4);background:rgba(47,207,148,.1)}
+.bk-tablewrap{overflow-x:auto;margin-top:10px}
+.bk-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}
+.bk-table th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);padding:8px 10px;border-bottom:1px solid var(--line)}
+.bk-table td{padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink)}
+.bk-table td b{color:var(--head)}.bk-table td small{display:block;margin-top:2px;font-size:12px;color:var(--mute)}
+.bk-table td.num{text-align:right;font-weight:600;white-space:nowrap}
+.bk-table tr.saved td.num{color:var(--green)}
+.bk-table tr.is-live td{background:rgba(63,208,208,.06)}
+.bk-table tr.is-live td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
+.bk-log{list-style:none;margin:10px 0 0;padding:0;font-size:12.5px;max-height:420px;overflow:auto}
+.bk-log li{display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line);animation:rise .25s ease-out}
+.bk-log li:first-child{border-top:0}
+.bk-log .m{flex:none;width:52px;text-align:center;padding:2px 0;border-radius:6px;font:700 10.5px ui-monospace,Menlo,monospace;background:rgba(255,255,255,.08);color:var(--ink)}
+.bk-log .m.post{background:rgba(63,208,208,.16);color:var(--acc)}.bk-log .m.delete{background:rgba(242,169,59,.14);color:var(--amber)}
+.bk-log .p{flex:1;min-width:0;font:12px ui-monospace,Menlo,monospace;color:var(--ink);word-break:break-all}
+.bk-log .p small{display:block;font-family:Inter,system-ui;font-size:12px;color:var(--mute);margin-top:2px}
+.bk-log .s{flex:none;font:700 11px ui-monospace,Menlo,monospace}.bk-log .s.ok{color:var(--green)}.bk-log .s.err{color:var(--amber)}
+@media (max-width:1100px){.bk-grid{grid-template-columns:minmax(0,1fr)}.bk-kpis{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.bk-vs{grid-template-columns:1fr;gap:10px}}

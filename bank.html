@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ahead for Banks</title>
+<meta name="description" content="Ahead for Banks: customers ranked by days before a shortfall, with the action that prevents it.">
+<meta name="theme-color" content="#06101f">
+<link rel="icon" href="assets/logo-192.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="bk">
+<div class="bk-wrap">
+  <header class="bk-top">
+    <div class="brand"><img class="logo" src="assets/logo-192.jpg" alt="Ahead"><div><h1>Ahead <span class="bk-for">for Banks</span></h1><small>Demo Bank · Risk &amp; retention console</small></div></div>
+    <div class="bk-sync"><i class="pulse" id="pulse"></i><span id="syncTxt">Connecting to Nessie…</span></div>
+  </header>
+
+  <section class="bk-kpis" id="kpis"></section>
+
+  <div class="bk-grid">
+    <div class="bk-main">
+      <section class="card bk-spot" id="spot"></section>
+      <section class="card">
+        <div class="row"><p class="label">Portfolio · ranked by days before a shortfall</p><p class="muted small">Demo portfolio. Alexandre is the live customer.</p></div>
+        <div class="bk-tablewrap"><table class="bk-table">
+          <thead><tr><th>Customer</th><th>Income</th><th>Classic view</th><th>Ahead view</th><th>Proposed action</th><th>Impact</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table></div>
+      </section>
+    </div>
+    <aside class="bk-side">
+      <section class="card">
+        <p class="label">Demo controls</p>
+        <p class="muted small">Writes a real event to Capital One's Nessie API. The customer's phone reads it within 3 seconds.</p>
+        <button class="pri wide" id="lateBtn">Elite Frame client pays 3 weeks late</button>
+        <div class="links"><button type="button" class="link" id="bkReset">Reset demo</button><a class="link" href="index.html" target="_blank" rel="noopener">Open customer app</a></div>
+      </section>
+      <section class="card">
+        <p class="label">Nessie activity · live</p>
+        <ul class="bk-log" id="nlog"></ul>
+      </section>
+    </aside>
+  </div>
+</div>
+<script src="engine.js"></script>
+<script src="bank.js"></script>
+</body>
+</html>

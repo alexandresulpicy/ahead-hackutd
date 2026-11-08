@@ -28,7 +28,7 @@ function render() {
   $('acctCh').textContent = usd(S.checking); $('acctSv').textContent = usd(S.savings);
   $('buckets').innerHTML = [[`Taxes (${Math.round(PREFS.taxRate * 100)}%)`, m.tax], ['Bills before next pay', m.billsDue], ['Free', m.free]]
     .map(([n, v]) => `<div class="bucket">${n}<b>${usd(v)}</b></div>`).join('');
-  const risk = m.riskE || m.riskC;
+  const risk = m.riskE; // alerte seulement si le cas attendu passe en négatif (base calme)
   $('alert').hidden = !risk && $('done').hidden;
   if (risk) $('done').hidden = true;
   $('alert').classList.toggle('is-done', !risk && !$('done').hidden);
@@ -214,12 +214,14 @@ new ResizeObserver(() => drawChart()).observe(chartEl);
 $('prevent').onclick = async () => {
   const m = metrics(+$('late').value), need = m.need; if (!need) return;
   $('prevent').disabled = true; // pas de double transfert
-  S.savings -= need; S.checking += need;
+  S.savings -= need; S.checking += need; APPLIED += need; HOLD = true; GEN++; // pas de relecture Nessie pendant l'écriture
   $('done').hidden = false; $('done').textContent = `Overdraft avoided. ${usd(OVERDRAFT_FEE)} in fees saved.`;
   logAction([{ k: 'move', t: `Moved ${usd(need)} from savings to checking`, s: `Ahead acted ${m.riskE ? Math.max(1, m.minE.i) : m.minC.i} days before the shortfall. ${usd(OVERDRAFT_FEE)} in overdraft fees avoided. Tax and bills envelopes untouched.` }]);
   render();
   // Nessie ne déplace pas les soldes : le transfer est enregistré (best-effort)
-  try { await nessie(`/accounts/${SV}/transfers`, 'POST', { status: 'pending', amount: need, transaction_date: iso(TODAY), description: `Prevent overdraft: savings ${SV} -> checking ${CH}` }); } catch {}
+  try { await nessie(`/accounts/${SV}/transfers`, 'POST', { status: 'pending', amount: need, transaction_date: iso(TODAY), description: `Ahead prevent: savings -> checking, ${S.delay.weeks ? 'client ' + S.delay.weeks + ' weeks late' : 'shortfall'}` }); }
+  catch { APPLIED -= need; } // Nessie n'a pas enregistré : on garde l'effet local sans le défaire au prochain relevé
+  HOLD = false; GEN++;
 };
 // --- Autopilot : règles qui s'exécutent seules quand un client paie, écrites dans Nessie ---
 const LOG = []; // le plus récent d'abord
@@ -291,9 +293,10 @@ $('late').addEventListener('input', () => { if (!pending) pending = requestAnima
 // --- Notification type « push » : prévient avant le découvert ---
 let pushShown = false, pushTimer;
 function showPush(m) {
-  const risk = m.riskE || m.riskC; if (pushShown || !risk) return; pushShown = true;
+  if (pushShown || !m.riskE) return; pushShown = true;
   const el = $('push');
-  el.innerHTML = `${LOGO}<div><b>Ahead · now</b><span>${m.riskE ? `Overdraft predicted ${nice(m.minE.date)} (${usd(m.minE.bal)}). Tap to prevent it.` : `At risk on ${nice(m.minC.date)} if your next payment is late.`}</span></div>`;
+  const w = S.delay.weeks, bill = (m.fe.bills.find(b => b.i === m.daysAhead) || {}).name;
+  el.innerHTML = `${LOGO}<div><b>Ahead · now</b><span>${w ? `Your Elite Frame client is paying ${w} weeks late. In ${m.daysAhead} days, ${bill ? bill.toLowerCase() : 'a bill'} overdraws your checking. Tap to prevent it.` : `Overdraft predicted ${nice(m.minE.date)} (${usd(m.minE.bal)}). Tap to prevent it.`}</span></div>`;
   el.hidden = false; requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
   const hide = () => { el.classList.remove('show'); clearTimeout(pushTimer); setTimeout(() => { el.hidden = true; }, 500); };
   el.onclick = () => { hide(); show('today'); $('alert').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
@@ -371,7 +374,22 @@ addMsg('bot', "Hi, I'm Ahead. Ask me about your money. I'll show you the exact t
   sp.addEventListener('click', done); setTimeout(done, 3950);
 })();
 // --- Démarrage ---
+// --- Liaison live : relit Nessie toutes les 3 s ; réagit au retard écrit par la banque ---
+async function poll() {
+  if (!live || document.hidden || HOLD) return;
+  const w0 = S.delay.weeks, a0 = APPLIED;
+  try { await sync(); } catch { return; }
+  if (HOLD) return;
+  const w = S.delay.weeks; if (w === w0 && APPLIED === a0) return;
+  $('late').value = w;
+  if (w !== w0) { pushShown = false; if (!w) $('done').hidden = true; }
+  if (!APPLIED && a0) $('done').hidden = true;
+  const m = render();
+  if (w > w0 && m.riskE) { show('today'); setTimeout(() => showPush(m), 250); }
+}
+setInterval(poll, 3000);
 load().then(live => {
+  $('late').value = S.delay.weeks;
   $('mode').textContent = live ? 'Nessie live' : 'Simulated data';
   const m = render();
   show((location.hash || '#today').slice(1));

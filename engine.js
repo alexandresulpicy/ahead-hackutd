@@ -35,10 +35,10 @@ function demoData() { // miroir du compte Nessie : 90 jours de freelance, revenu
   return {
     checking: 900, savings: 2500, debt: 640, purchases,
     loans: [{ type: 'auto', amount: 6400, monthly_payment: 215, description: 'Auto loan - Honda Civic, 36 months left' }, { type: 'student', amount: 14500, monthly_payment: 120, description: 'Federal student loan' }],
-    deposits: [['2026-08-14', 1200, 'Brand video - Elite Frame'], ['2026-08-28', 450, 'Tennis coaching'], ['2026-09-22', 120, 'Photo edit - Elite Frame'],
+    deposits: [['2026-08-14', 1200, 'Brand video - Elite Frame'], ['2026-08-28', 1200, 'Tennis coaching'], ['2026-09-22', 120, 'Photo edit - Elite Frame'],
       ['2026-10-09', 3800, 'Wedding film - Elite Frame'], ['2026-10-27', 1200, 'Product shoot - Elite Frame'], ['2026-11-01', 300, 'Tennis coaching']]
       .map(([transaction_date, amount, description]) => ({ transaction_date, amount, description })),
-    bills: [{ nickname: 'Rent', payment_amount: 850, payment_date: '2026-11-15', recurring_date: 15 }, { nickname: 'Phone', payment_amount: 60, payment_date: '2026-11-20', recurring_date: 20 },
+    bills: [{ nickname: 'Rent', payment_amount: 850, payment_date: '2026-12-01', recurring_date: 1 }, { nickname: 'Phone', payment_amount: 60, payment_date: '2026-11-20', recurring_date: 20 },
       { nickname: 'Software', payment_amount: 30, payment_date: '2026-12-05', recurring_date: 5 }],
   };
 }
@@ -50,14 +50,35 @@ const LOAN_DAY = { auto: 25, student: 28 }, CARD_MIN = { day: 22, amt: 35 }; // 
 
 async function load() {
   try {
-    const [d, p, b, a, l] = await Promise.all([nessie(`/accounts/${CH}/deposits`), nessie(`/accounts/${CH}/purchases`), nessie(`/accounts/${CH}/bills`), nessie(`/customers/${CUSTOMER}/accounts`), nessie(`/accounts/${CH}/loans`).catch(() => S.loans)]);
+    const [d, p, b, a, l, t] = await Promise.all([nessie(`/accounts/${CH}/deposits`), nessie(`/accounts/${CH}/purchases`), nessie(`/accounts/${CH}/bills`), nessie(`/customers/${CUSTOMER}/accounts`), nessie(`/accounts/${CH}/loans`).catch(() => S.loans), nessie(`/accounts/${SV}/transfers`).catch(() => [])]);
     const by = t => a.find(x => x.type === t);
     S.accts = a;
-    Object.assign(S, { deposits: d, purchases: p, bills: b, loans: l.length ? l : S.loans, checking: by('Checking').balance, savings: by('Savings').balance, debt: by('Credit Card')?.balance || 0 });
+    APPLIED = 0; S.delay = delayIn(d); S.transfers = t;
+    Object.assign(S, { deposits: d.filter(x => !isDelay(x)), purchases: p, bills: b, loans: l.length ? l : S.loans, checking: by('Checking').balance, savings: by('Savings').balance, debt: by('Credit Card')?.balance || 0 });
+    applyPrevented(preventedIn(t));
     live = true;
   } catch { live = false; } // pas de proxy en local : démo simulée
   return live;
 }
+
+// --- Liaison live banque <-> téléphone, entièrement par Nessie ---
+// La banque écrit un dépôt « en attente » retardé ; le client répond par un virement « Ahead prevent ».
+const isDelay = x => x.status === 'pending' && /^Delayed payment/.test(x.description || '');
+const delayIn = deps => { const x = deps.find(isDelay); return x ? { weeks: +((x.description.match(/\+(\d+) week/) || [])[1] || 3), id: x._id, date: x.transaction_date } : { weeks: 0, id: null }; };
+const isPrevent = t => /^Ahead prevent/.test(t.description || '');
+const preventedIn = trs => trs.filter(isPrevent).reduce((s, t) => s + (+t.amount || 0), 0);
+let APPLIED = 0; // montant « Prevent » déjà reflété dans les soldes (Nessie ne bouge pas les soldes)
+let HOLD = false; // vrai pendant que le client écrit son virement : on n'applique pas une relecture périmée
+function applyPrevented(total) { if (HOLD) return; const d = total - APPLIED; if (d) { S.savings -= d; S.checking += d; APPLIED = total; } }
+let GEN = 0; // incrémenté à chaque écriture du client : une relecture lancée avant est ignorée
+async function sync() { // relecture légère toutes les 3 s
+  const g = GEN;
+  const [d, t] = await Promise.all([nessie(`/accounts/${CH}/deposits`), nessie(`/accounts/${SV}/transfers`)]);
+  if (g !== GEN || HOLD) return S.delay;
+  S.delay = delayIn(d); S.deposits = d.filter(x => !isDelay(x)); S.transfers = t; applyPrevented(preventedIn(t));
+  return S.delay;
+}
+S.delay = { weeks: 0, id: null };
 
 // --- Modèle de revenu irrégulier : calculé sur l'historique des dépôts ---
 const quant = (arr, p) => { const a = [...arr].sort((x, y) => x - y), pos = p * (a.length - 1), lo = Math.floor(pos), hi = Math.ceil(pos); return a[lo] + (a[hi] - a[lo]) * (pos - lo); };
