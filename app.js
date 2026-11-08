@@ -230,8 +230,8 @@ chartEl.addEventListener('pointerleave', () => { hover = null; drawChart(); });
 new ResizeObserver(() => drawChart()).observe(chartEl);
 
 // --- Action : Prevent it ---
-$('prevent').onclick = async () => {
-  const m = metrics(+$('late').value), need = m.need; if (!need) return;
+async function preventNow() {
+  const m = metrics(+$('late').value), need = m.need; if (!need) return 0;
   $('prevent').disabled = true; // pas de double transfert
   S.savings -= need; S.checking += need; APPLIED += need; HOLD = true; GEN++; // pas de relecture Nessie pendant l'écriture
   $('done').hidden = false; $('done').textContent = `Overdraft avoided. ${usd(OVERDRAFT_FEE)} in fees saved.`;
@@ -241,7 +241,9 @@ $('prevent').onclick = async () => {
   try { await nessie(`/accounts/${SV}/transfers`, 'POST', { status: 'pending', amount: need, transaction_date: iso(TODAY), description: `Ahead prevent: savings -> checking, ${S.delay.weeks ? 'client ' + S.delay.weeks + ' weeks late' : 'shortfall'}` }); }
   catch { APPLIED -= need; } // Nessie n'a pas enregistré : on garde l'effet local sans le défaire au prochain relevé
   HOLD = false; GEN++;
-};
+  return need;
+}
+$('prevent').onclick = preventNow;
 // --- Autopilot : règles qui s'exécutent seules quand un client paie, écrites dans Nessie ---
 const LOG = []; // le plus récent d'abord
 const ICONS = { in: '＋', move: '→', safe: '◎', undo: '↺' };
@@ -350,44 +352,86 @@ function onboard(step = 0) {
   o.querySelector('.ob-skip').onclick = finish;
 }
 
-// --- Coach : conversation. Haiku via /api/coach, repli à base de règles ; toujours des transactions citées ---
-function ruleCoach(q) {
-  const m = metrics(+$('late').value), amt = +((q.match(/\$?\s*(\d[\d,]*(?:\.\d+)?)/) || [])[1] || '').replace(',', '');
-  const tags = txTags(), cite = t => tags.filter(x => x.tag[0] === t).slice(0, 3).map(x => `[${x.tag}]`).join(' ');
-  if (/overdraft|negative|run out/i.test(q)) return m.riskE ? `Yes, if nothing changes: checking is projected at ${usd(m.minE.bal)} on ${nice(m.minE.date)}, because bills ${cite('B')} land before your next payment ${cite('D')}. Prevent it moves ${usd(m.need)} from savings.` : 'No overdraft is projected in the next 45 days, even if your next payment is late.';
-  if (/tax/i.test(q)) return `Set aside ${Math.round(PREFS.taxRate * 100)}% of every payment: that is ${usd(m.tax)} on your last 90 days of income ${cite('D')}.`;
-  if (!amt) return `Today you can spend ${usd(m.safe)} safely: ${usd(m.free)} free over the ${m.daysToIncome} days until your next payment, after ${usd(m.tax)} for taxes on income ${cite('D')} and ${usd(m.billsDue)} of bills ${cite('B')}.`;
-  return amt <= m.free
-    ? `Yes: ${usd(amt)} fits in your free bucket of ${usd(m.free)}, after taxes on income ${cite('D')} and bills ${cite('B')}.`
-    : `Not yet: ${usd(amt)} is more than your free bucket of ${usd(m.free)}. Taxes on income ${cite('D')} and bills ${cite('B')} come first.`;
+// --- Coach : conversation courte avec mémoire. Haiku via /api/coach (réponse structurée), repli à base de règles.
+// Chaque réponse peut proposer UNE action ; le client l'exécute d'un tap (c'est son consentement).
+const HIST = []; // mémoire de la conversation (texte seulement), envoyée au serveur
+const NO_ACTION = { type: 'none', from: 'none', to: 'none', amount: 0, label: '' };
+function coachContext() {
+  const m = metrics(+$('late').value), when = f => nice(f.out[Math.min(f.first, HORIZON)].date);
+  return { today: iso(TODAY), checking: Math.round(S.checking), savings: Math.round(S.savings), freeSavings: Math.round(freeSavings()), creditCardDebt: S.debt,
+    daysAhead: m.capped ? '45+' : m.daysAhead, shortfallPredicted: !!m.riskE, preventAmount: m.need, lowestBalance: Math.round(m.minE.bal), lowestDate: nice(m.minE.date),
+    clientWeeksLate: S.delay.weeks, safeToSpendToday: Math.round(m.safe), taxBucket: Math.round(m.tax), billsBeforeNextPayment: Math.round(m.billsDue),
+    nextPayment: { cautious: when(m.fc), expected: when(m.fe), favorable: when(m.ff) },
+    loans: S.loans.map(l => ({ type: l.type, owed: l.amount, monthly: l.monthly_payment })), transactions: txTags() };
 }
-function addMsg(who, text, withCites) {
+function ruleCoach(q) { // repli sans IA : court, varié selon l'état, même format que l'IA
+  const m = metrics(+$('late').value), amt = +((q.match(/\$?\s*(\d[\d,]*(?:\.\d+)?)/) || [])[1] || '').replace(',', '');
+  const tags = txTags(), cite = (t, n = 2) => tags.filter(x => x.tag[0] === t).slice(0, n).map(x => `[${x.tag}]`).join(' ');
+  const days = m.capped ? '45+' : m.daysAhead, say = (text, action = NO_ACTION, suggestions) => ({ text, cites: (text.match(/\[([A-Z]\d+)\]/g) || []).map(s => s.slice(1, -1)), action,
+    suggestions: suggestions || (m.riskE ? ['Fix it now', 'Why is this happening?', 'What if they pay later?'] : ['Can I afford a $200 lens?', 'How much for taxes?', 'When is my next payment?']) });
+  if (/overdraft|negative|run out|short|fix|prevent|cover/i.test(q))
+    const rent = (tags.find(t => /Rent/.test(t.text)) || {}).tag, bill = rent ? `[${rent}]` : cite('B', 1);
+    return m.riskE ? say(`Yes: rent ${bill} lands before your late payment, so checking hits ${usd(m.minE.bal)} on ${nice(m.minE.date)}. Moving ${usd(m.need)} from savings covers it. Tap below.`,
+      { type: 'prevent', from: 'savings', to: 'checking', amount: m.need, label: `Move ${usd(m.need)} to checking` }, ['Why that amount?', 'Is my tax jar safe?', 'When does the client pay?'])
+      : say(`No. You're ${days} days ahead, even if a client pays a bit late ${cite('D')}.`);
+  if (/tax/i.test(q)) return say(`Keep ${Math.round(PREFS.taxRate * 100)}% of every payment: ${usd(m.tax)} on your last income ${cite('D')}. Autopilot already sets it aside.`, NO_ACTION, ['Is that enough?', 'Am I going to overdraft?', 'Where does my money go?']);
+  if (/(move|transfer|save|put)/i.test(q) && amt) {
+    const toSav = /savings|save|put/i.test(q) && !/to checking/i.test(q), a2 = Math.min(amt, toSav ? Math.max(0, S.checking - PREFS.cushion) : freeSavings());
+    return a2 > 0 ? say(`Sure, ${usd(a2)} from ${toSav ? 'checking to savings' : 'savings to checking'}. Tap below.`, { type: 'move', from: toSav ? 'checking' : 'savings', to: toSav ? 'savings' : 'checking', amount: a2, label: `Move ${usd(a2)} to ${toSav ? 'savings' : 'checking'}` })
+      : say(`Not possible right now: that money is protected for taxes and bills.`);
+  }
+  if (/when|next pay|paid/i.test(q)) return say(`Most likely ${nice(m.fe.out[Math.min(m.fe.first, HORIZON)].date)}, between ${nice(m.ff.out[Math.min(m.ff.first, HORIZON)].date)} and ${nice(m.fc.out[Math.min(m.fc.first, HORIZON)].date)}, based on your past clients ${cite('D')}.`);
+  if (amt) return amt <= m.free ? say(`Yes, ${usd(amt)} fits: you have ${usd(m.free)} free after taxes and bills ${cite('B', 1)}.`) : say(`Not yet: ${usd(amt)} is more than your ${usd(m.free)} free after taxes ${cite('D', 1)} and bills ${cite('B', 1)}.`);
+  return say(`You can spend ${usd(m.safe)} a day safely, and you're ${days} days ahead.`);
+}
+// Exécute l'action proposée (bornée côté app : jamais plus que l'épargne libre)
+async function runAction(a) {
+  if (a.type === 'prevent') return preventNow();
+  const from = a.from, amt = Math.round(Math.min(a.amount, from === 'savings' ? freeSavings() : Math.max(0, S.checking - PREFS.cushion)));
+  if (!(amt > 0) || from === a.to) return 0;
+  if (from === 'savings') { S.savings -= amt; S.checking += amt; } else { S.checking -= amt; S.savings += amt; }
+  logAction([{ k: 'move', t: `Moved ${usd(amt)} from ${from} to ${a.to}`, s: 'Asked in the coach, approved with one tap.' }]);
+  render();
+  try { await nessie(`/accounts/${from === 'savings' ? SV : CH}/transfers`, 'POST', { status: 'pending', amount: amt, transaction_date: iso(TODAY), description: `Ahead coach: ${from} -> ${a.to}` }); } catch {}
+  return amt;
+}
+function addMsg(who, text, extra = {}) {
   const d = document.createElement('div'); d.className = 'msg ' + who;
   const p = document.createElement('p'); p.textContent = text; d.appendChild(p);
-  if (withCites) {
-    const used = txTags().filter(t => text.includes(`[${t.tag}]`));
-    if (used.length) { const ul = document.createElement('ul'); ul.className = 'cites'; used.forEach(t => { const li = document.createElement('li'); li.innerHTML = `<b>${t.tag}</b> `; li.append(t.text); ul.appendChild(li); }); d.appendChild(ul); }
+  const used = extra.cites ? txTags().filter(t => extra.cites.includes(t.tag) || text.includes(`[${t.tag}]`)) : [];
+  if (used.length) { const ul = document.createElement('ul'); ul.className = 'cites'; used.forEach(t => { const li = document.createElement('li'); li.innerHTML = `<b>${t.tag}</b> `; li.append(t.text); ul.appendChild(li); }); d.appendChild(ul); }
+  const a = extra.action;
+  if (a && a.type !== 'none' && a.amount > 0) {
+    const b = document.createElement('button'); b.className = 'act'; b.textContent = a.label || `Move ${usd(a.amount)}`;
+    b.onclick = async () => {
+      b.disabled = true; const done = await runAction(a);
+      b.textContent = done ? `Done · ${usd(done)} moved` : 'Nothing to move now'; b.classList.add('ok');
+      if (done) { const msg = a.type === 'prevent' ? `Done. Checking is covered, ${usd(OVERDRAFT_FEE)} in fees avoided. You're ${metrics(+$('late').value).capped ? '45+' : metrics(+$('late').value).daysAhead} days ahead again.` : `Done. ${usd(done)} moved to ${a.to}.`;
+        addMsg('bot', msg); HIST.push({ role: 'assistant', content: msg }); }
+    };
+    d.appendChild(b);
   }
   $('chatlog').appendChild(d); d.scrollIntoView({ block: 'end', behavior: 'smooth' }); return d;
 }
+function setSuggestions(list) {
+  const qs = (list || []).filter(s => typeof s === 'string' && s.length <= 60).slice(0, 3); if (!qs.length) return;
+  $('chips').innerHTML = qs.map(s => `<button type="button" data-q="${s.replace(/"/g, '&quot;')}">${s.replace(/</g, '&lt;')}</button>`).join('');
+}
 async function ask(q) {
-  addMsg('me', q);
+  addMsg('me', q); HIST.push({ role: 'user', content: q });
   const typing = addMsg('bot', ''); typing.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
-  const m = metrics(+$('late').value), when = f => nice(f.out[Math.min(f.first, HORIZON)].date);
-  const context = { today: iso(TODAY), checking: S.checking, savings: S.savings, creditCardDebt: S.debt, safeToSpendToday: Math.round(m.safe), taxBucket: Math.round(m.tax),
-    billsBeforeNextPayment: Math.round(m.billsDue), freeBucket: Math.round(m.free), avgDailySpend: Math.round(dailySpend()),
-    nextPayment: { cautious: when(m.fc), expected: when(m.fe), favorable: when(m.ff) }, projectedLowestBalance: { expected: Math.round(m.minE.bal), cautious: Math.round(m.minC.bal) }, transactions: txTags() };
-  let answer;
+  let r;
   try {
-    const r = await fetch('/api/coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, context }) });
-    if (!r.ok) throw new Error(r.status);
-    answer = (await r.json()).answer; if (!answer) throw new Error('empty');
-  } catch { answer = ruleCoach(q); }
-  typing.remove(); addMsg('bot', answer, true);
+    const res = await fetch('/api/coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: HIST.slice(-8), context: coachContext() }) });
+    if (!res.ok) throw new Error(res.status);
+    r = await res.json(); if (!r || typeof r.text !== 'string' || !r.text) throw new Error('empty');
+    if (r.action && r.action.type === 'prevent') { const need = metrics(+$('late').value).need; r.action = need ? { ...r.action, amount: need, label: `Move ${usd(need)} to checking` } : NO_ACTION; }
+  } catch { r = ruleCoach(q); }
+  typing.remove(); addMsg('bot', r.text, { cites: r.cites || [], action: r.action }); HIST.push({ role: 'assistant', content: r.text }); setSuggestions(r.suggestions);
 }
 $('askForm').onsubmit = e => { e.preventDefault(); const q = $('q').value.trim(); if (!q) return; $('q').value = ''; ask(q); };
 $('chips').addEventListener('click', e => { const b = e.target.closest('button[data-q]'); if (b) ask(b.dataset.q); });
-addMsg('bot', "Hi, I'm Ahead. Ask me about your money. I'll show you the exact transactions behind every answer.");
+addMsg('bot', "Hi Alexandre. Ask me anything about your money, or tell me what to do. I show the transactions behind every answer.");
 
 // --- Écran d'ouverture : retiré après l'animation, ou au tap ; ?skip le supprime (tests) ---
 (() => {
