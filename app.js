@@ -19,7 +19,7 @@ document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click'
 
 // --- Rendu ---
 function render() {
-  const late = +$('late').value; $('lateVal').textContent = late;
+  const late = +$('late').value; $('lateVal').textContent = late; $('lateVal').nextSibling.textContent = late === 1 ? ' week late' : ' weeks late';
   const m = metrics(late);
   countTo(m.safe);
   $('days').textContent = m.daysAhead + (m.capped ? '+' : '');
@@ -266,7 +266,7 @@ function renderAutopilot(m = metrics(+$('late').value)) {
     : '<li class="empty">Nothing yet. Simulate a payment, or tap "Prevent it" on the Today screen, and every move Ahead makes shows up here.</li>';
 }
 async function clientPaid(amount) {
-  const late = +$('late').value, before = metrics(late).safe;
+  const late = +$('late').value, before = metrics(late).free;
   $('payBtn').disabled = true; $('payNote').textContent = 'Writing the deposit to Nessie…';
   let id = null, wrote = true;
   try { id = (await nessie(`/accounts/${CH}/deposits`, 'POST', { medium: 'balance', transaction_date: iso(TODAY), status: 'completed', amount, description: 'Autopilot demo - client payment' })).objectCreated?._id; } catch { wrote = false; }
@@ -285,7 +285,7 @@ async function clientPaid(amount) {
   }
   LAST_PAY = { amount, id, tid, moves };
   const m = render();
-  entries.push({ k: 'safe', t: `Safe to spend today: ${usd(before)} → ${usd(m.safe)}`, s: m.riskE ? 'A shortfall is still possible before your next payment.' : m.riskC ? 'No overdraft expected, but a late payment could still cause one.' : 'No overdraft projected, even if your next payment is late.' });
+  entries.push({ k: 'safe', t: `Free after taxes and bills: ${usd(before)} → ${usd(m.free)}`, s: m.riskE ? 'A shortfall is still possible before your next payment.' : m.riskC ? 'No overdraft expected, but a late payment could still cause one.' : 'No overdraft projected, even if your next payment is late.' });
   logAction(entries);
   $('payBtn').disabled = true; $('payNote').textContent = 'Done. Check Today, What-if and Activity. Undo or Reset to simulate another payment.';
 }
@@ -333,7 +333,7 @@ function showPush(m) {
   if (pushShown || !m.riskE) return; pushShown = true;
   const el = $('push');
   const w = S.delay.weeks, bill = (m.fe.bills.find(b => b.i === m.daysAhead) || {}).name;
-  el.innerHTML = `${LOGO}<div><b>Ahead · now</b><span>${w ? `Your Elite Frame client is paying ${w} weeks late. In ${m.daysAhead} days, ${bill ? bill.toLowerCase() : 'a bill'} overdraws your checking. Tap to prevent it.` : `Overdraft predicted ${nice(m.minE.date)} (${usd(m.minE.bal)}). Tap to prevent it.`}</span></div>`;
+  el.innerHTML = `${LOGO}<div><b>Ahead · now</b><span>${w ? `Your Elite Frame client is paying ${w} ${w === 1 ? 'week' : 'weeks'} late. In ${m.daysAhead} days, ${bill ? bill.toLowerCase() : 'a bill'} overdraws your checking. Tap to prevent it.` : `Overdraft predicted ${nice(m.minE.date)} (${usd(m.minE.bal)}). Tap to prevent it.`}</span></div>`;
   el.hidden = false; requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
   const hide = () => { el.classList.remove('show'); clearTimeout(pushTimer); setTimeout(() => { el.hidden = true; }, 500); };
   el.onclick = () => { hide(); show('today'); $('alert').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
