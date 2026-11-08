@@ -177,3 +177,10 @@ canvas{display:block;width:100%;height:clamp(300px,52vh,520px);margin-top:14px;c
 }
 @media (max-width:480px){.hero{padding:22px 18px}.buckets,.health{gap:8px}.bucket b{font-size:16px}.health b{font-size:18px}.acct:first-child{display:none}.top h2{font-size:19px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.big small{font-size:.34em;font-weight:600;letter-spacing:-.01em;color:#8be3bd;margin-left:.15em}
+.safe{display:flex;justify-content:space-between;align-items:baseline;margin-top:22px;padding-top:16px;border-top:1px solid rgba(255,255,255,.18);font-size:14px;color:rgba(255,255,255,.75)}
+.safe b{font-size:30px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums}
+.sim.first{margin-top:6px;padding-top:0;border-top:0}
+.whatif .chips{margin:10px 0 14px}.whatif .chips button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.health .bad{color:var(--red)}

@@ -1,6 +1,6 @@
 // Ahead — interface : écrans, graphique, onboarding, notification, coach
 const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1b7f8c"/><path d="M10 9l7 7-7 7M17 9l7 7-7 7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const TITLES = { today: 'Today', plan: 'Plan', whole: 'Whole picture', autopilot: 'Autopilot', coach: 'Coach', activity: 'Activity' };
+const TITLES = { today: 'Today', plan: 'What-if', whole: 'Whole picture', autopilot: 'Autopilot', coach: 'Coach', activity: 'Activity' };
 let view = 'today';
 
 function show(v) {
@@ -20,6 +20,9 @@ function render() {
   const late = +$('late').value; $('lateVal').textContent = late;
   const m = metrics(late);
   countTo(m.safe);
+  $('days').textContent = m.daysAhead + (m.capped ? '+' : '');
+  $('daysSub').textContent = m.capped ? 'no shortfall projected in the next 45 days' : 'until checking runs short if nothing changes';
+  renderWhatIf(m, late);
   $('acctCh').textContent = usd(S.checking); $('acctSv').textContent = usd(S.savings);
   $('buckets').innerHTML = [[`Taxes (${Math.round(PREFS.taxRate * 100)}%)`, m.tax], ['Bills before next pay', m.billsDue], ['Free', m.free]]
     .map(([n, v]) => `<div class="bucket">${n}<b>${usd(v)}</b></div>`).join('');
@@ -31,7 +34,7 @@ function render() {
   $('alertLabel').textContent = risk ? (m.riskE ? 'Overdraft predicted' : 'At risk') : 'All clear';
   $('alertText').textContent = m.riskE
     ? `Checking is projected at ${usd(m.minE.bal)} on ${nice(m.minE.date)}. Without action: about ${usd(OVERDRAFT_FEE)} in overdraft fees.`
-    : m.riskC ? `If your next payment is as late as your slowest (${nice(m.fc.out[m.daysToIncome].date)}), checking hits ${usd(m.minC.bal)} on ${nice(m.minC.date)}.`
+    : m.riskC ? `If your next payment is as late as your slowest (${nice(m.fc.out[Math.min(m.daysToIncome, HORIZON)].date)}), checking hits ${usd(m.minC.bal)} on ${nice(m.minC.date)}.`
     : 'No overdraft in the next 45 days, even if your next payment is late.';
   $('alertSub').textContent = risk ? `Prevent it moves ${usd(m.need)} from savings now, enough even on the cautious timeline.` : '';
   $('alertSub').hidden = !risk;
@@ -47,8 +50,17 @@ function render() {
   setChart(m);
   return m;
 }
+function renderWhatIf(m, late) {
+  $('lateChips').querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.w === late));
+  const low = m.minC.bal, fee = m.riskC ? OVERDRAFT_FEE : 0;
+  $('whatifOut').innerHTML = [['Days Ahead', m.daysAhead + (m.capped ? '+' : '')], ['Lowest balance', `<span class="${low < 0 ? 'bad' : ''}">${usd(low)}</span>`], ['Fees at risk', usd(fee)]]
+    .map(([n, v]) => `<div>${n}<b>${v}</b></div>`).join('');
+  $('whatifText').textContent = late === 0 ? 'Your client pays on their usual rhythm. Drag to see how a late payment changes your runway.'
+    : m.riskC ? `If they pay ${late} week${late > 1 ? 's' : ''} late, checking drops to ${usd(low)} on ${nice(m.minC.date)}. Ahead would warn you ${m.daysAhead} days before.`
+    : `Even ${late} week${late > 1 ? 's' : ''} late, you stay above zero. Ahead keeps you ${m.daysAhead}${m.capped ? '+' : ''} days ahead.`;
+}
 function renderNextPay(m) {
-  const day = f => f.out[f.first].date, span = Math.max(30, m.fc.first + 3), pct = d => Math.min(100, d / span * 100);
+  const day = f => f.out[Math.min(f.first, HORIZON)].date, span = Math.max(30, m.fc.first + 3), pct = d => Math.min(100, d / span * 100);
   $('nextPay').innerHTML = `<div class="when">${nice(day(m.fe))}</div>
     <div class="rng">Could land as early as ${nice(day(m.ff))}, or as late as ${nice(day(m.fc))}. Typically ${usd(m.M.a.expected)}.</div>
     <div class="bar"><i style="left:${pct(m.ff.first)}%;width:${Math.max(2, pct(m.fc.first) - pct(m.ff.first))}%"></i><b style="left:${pct(m.fe.first)}%"></b></div>
@@ -218,6 +230,7 @@ $('amts').addEventListener('click', e => { const b = e.target.closest('button[da
 $('ruleTax').onchange = e => { RULES.tax = e.target.checked; };
 $('ruleBills').onchange = e => { RULES.bills = e.target.checked; };
 
+$('lateChips').addEventListener('click', e => { const b = e.target.closest('button[data-w]'); if (!b) return; $('late').value = b.dataset.w; render(); });
 // Curseur : un seul rendu par image, pas à chaque événement
 let pending = 0;
 $('late').addEventListener('input', () => { if (!pending) pending = requestAnimationFrame(() => { pending = 0; render(); }); });
@@ -281,7 +294,7 @@ function addMsg(who, text, withCites) {
 async function ask(q) {
   addMsg('me', q);
   const typing = addMsg('bot', ''); typing.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
-  const m = metrics(+$('late').value), when = f => nice(f.out[f.first].date);
+  const m = metrics(+$('late').value), when = f => nice(f.out[Math.min(f.first, HORIZON)].date);
   const context = { today: iso(TODAY), checking: S.checking, savings: S.savings, creditCardDebt: S.debt, safeToSpendToday: Math.round(m.safe), taxBucket: Math.round(m.tax),
     billsBeforeNextPayment: Math.round(m.billsDue), freeBucket: Math.round(m.free), avgDailySpend: Math.round(dailySpend()),
     nextPayment: { cautious: when(m.fc), expected: when(m.fe), favorable: when(m.ff) }, projectedLowestBalance: { expected: Math.round(m.minE.bal), cautious: Math.round(m.minC.bal) }, transactions: txTags() };

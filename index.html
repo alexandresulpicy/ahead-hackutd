@@ -15,7 +15,7 @@
     <div class="brand"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1b7f8c"/><stop offset="1" stop-color="#123b5e"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M10 9l7 7-7 7M17 9l7 7-7 7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><h1>Ahead</h1></div>
     <nav class="nav" id="nav">
       <button data-view="today" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Today</span></button>
-      <button data-view="plan"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-9M15 6h6v6"/></svg><span>Plan</span></button>
+      <button data-view="plan"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-9M15 6h6v6"/></svg><span>What-if</span></button>
       <button data-view="whole"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 4"/></svg><span>360°</span></button>
       <button data-view="autopilot"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><span>Autopilot</span></button>
       <button data-view="coach"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span>Coach</span></button>
@@ -40,9 +40,10 @@
         <div class="grid2">
           <div class="stack">
             <div class="hero" aria-live="polite">
-              <p class="label" id="greet">Safe to spend today</p>
-              <p class="big" id="safe">$0</p>
-              <p class="sub">after taxes and bills, until your next payment</p>
+              <p class="label">You're</p>
+              <p class="big"><span id="days">0</span><small> days Ahead</small></p>
+              <p class="sub" id="daysSub">of your money, even if a client pays late</p>
+              <div class="safe"><span>Safe to spend today</span><b id="safe">$0</b></div>
               <div class="buckets" id="buckets"></div>
             </div>
             <section class="card alert" id="alert" hidden>
@@ -62,14 +63,20 @@
 
       <!-- Plan -->
       <section class="screen" id="screen-plan">
+        <section class="card whatif">
+          <p class="label">What if your client pays late?</p>
+          <label class="sim first">
+            <span><b id="lateVal">0</b> weeks late</span>
+            <input type="range" id="late" min="0" max="6" value="0">
+          </label>
+          <div class="chips" id="lateChips"><button type="button" data-w="0">On time</button><button type="button" data-w="1">1 week</button><button type="button" data-w="3">3 weeks</button><button type="button" data-w="6">6 weeks</button></div>
+          <div class="health" id="whatifOut"></div>
+          <p class="muted" id="whatifText"></p>
+        </section>
         <section class="card chartcard">
           <div class="row"><p class="label">Balance forecast · 45 days</p>
             <p class="legend"><i class="l-line"></i>Expected <i class="l-band"></i>Range <i class="l-bill"></i>Bill <i class="l-in"></i>Payment</p></div>
           <canvas id="chart" aria-label="Forecast of your checking balance over 45 days"></canvas>
-          <label class="sim">
-            <span>What if your client pays <b id="lateVal">0</b> weeks late?</span>
-            <input type="range" id="late" min="0" max="6" value="0">
-          </label>
         </section>
       </section>
 
@@ -139,7 +146,7 @@
 
 <nav class="tabbar" id="tabbar" aria-label="Main">
   <button data-view="today" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Today</span></button>
-  <button data-view="plan"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-9M15 6h6v6"/></svg><span>Plan</span></button>
+  <button data-view="plan"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-9M15 6h6v6"/></svg><span>What-if</span></button>
   <button data-view="whole"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 4"/></svg><span>360°</span></button>
       <button data-view="autopilot"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><span>Autopilot</span></button>
   <button data-view="coach"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span>Coach</span></button>

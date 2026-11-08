@@ -101,7 +101,8 @@ function metrics(late) {
   const minE = minOf(fe), minC = minOf(fc);
   const riskE = minE.bal < 0 ? minE : null, riskC = minC.bal < 0 ? minC : null;
   const need = riskC ? Math.min(freeSavings(), Math.ceil(-minC.bal + PREFS.cushion)) : 0;
-  return { fe, fc, ff, M, liquid, tax, billsDue, free, safe, daysToIncome: fc.first, minE, minC, riskE, riskC, need };
+  const dry = fe.out.find(p => p.i > 0 && p.bal < 0), daysAhead = dry ? dry.i : HORIZON; // jours avant le premier manque, cas attendu (le retard du client le fait bouger)
+  return { fe, fc, ff, M, daysAhead, capped: !dry, liquid, tax, billsDue, free, safe, daysToIncome: fc.first, minE, minC, riskE, riskC, need };
 }
 // Échelle verticale FIXE : calculée sur tous les scénarios et tous les retards (0 à 6 semaines),
 // donc le graphique ne change pas de format quand on bouge le curseur.
