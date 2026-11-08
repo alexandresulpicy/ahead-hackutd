@@ -365,9 +365,16 @@ function onboard(step = 0) {
 // Chaque réponse peut proposer UNE action ; le client l'exécute d'un tap (c'est son consentement).
 const HIST = []; // mémoire de la conversation (texte seulement), envoyée au serveur
 const NO_ACTION = { type: 'none', from: 'none', to: 'none', amount: 0, label: '' };
-function coachContext() {
+// Verdict d'achat calculé ici (jamais par l'IA) : tient dans le libre après impôts/factures ET le point bas prudent reste au-dessus du coussin
+function purchaseCheck(amt, m = metrics(+$('late').value)) {
+  const lowAfter = Math.round(m.minC.bal - amt), free = Math.round(m.free);
+  const verdict = amt > free ? 'no' : lowAfter < PREFS.cushion ? 'tight' : 'yes';
+  return { amount: amt, verdict, freeAfterTaxesAndBills: free, lowestBalanceAfterPurchase: lowAfter, lowestDate: nice(m.minC.date), cushion: PREFS.cushion };
+}
+function coachContext(q = '') {
   const m = metrics(+$('late').value), when = f => nice(f.out[Math.min(f.first, HORIZON)].date);
-  return { today: iso(TODAY), checking: Math.round(S.checking), savings: Math.round(S.savings), freeSavings: Math.round(freeSavings()), creditCardDebt: S.debt,
+  const am = +((q.match(/\$\s*(\d[\d,]*(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s*(?:dollars|bucks)/i) || [])[1] || (q.match(/\$\s*(\d[\d,]*(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s*(?:dollars|bucks)/i) || [])[2] || '').replace(',', '');
+  return { ...(am > 0 ? { purchaseCheck: purchaseCheck(am, m) } : {}), today: iso(TODAY), checking: Math.round(S.checking), savings: Math.round(S.savings), freeSavings: Math.round(freeSavings()), creditCardDebt: S.debt,
     daysAhead: m.capped ? '45+' : m.daysAhead, shortfallPredicted: !!m.riskE, preventAmount: m.need, lowestBalance: Math.round(m.minE.bal), lowestDate: nice(m.minE.date),
     clientWeeksLate: S.delay.weeks, safeToSpendToday: Math.round(m.safe), taxBucket: Math.round(m.tax), billsBeforeNextPayment: Math.round(m.billsDue),
     nextPayment: { cautious: when(m.fc), expected: when(m.fe), favorable: when(m.ff) },
@@ -391,7 +398,10 @@ function ruleCoach(q) { // repli sans IA : court, varié selon l'état, même fo
       : say(`Not possible right now: that money is protected for taxes and bills.`);
   }
   if (/when|next pay|paid/i.test(q)) return say(`Most likely ${nice(m.fe.out[Math.min(m.fe.first, HORIZON)].date)}, between ${nice(m.ff.out[Math.min(m.ff.first, HORIZON)].date)} and ${nice(m.fc.out[Math.min(m.fc.first, HORIZON)].date)}, based on your past clients ${cite('D')}.`);
-  if (amt) return amt <= m.free ? say(`Yes, ${usd(amt)} fits: you have ${usd(m.free)} free after taxes and bills ${cite('B', 1)}.`) : say(`Not yet: ${usd(amt)} is more than your ${usd(m.free)} free after taxes ${cite('D', 1)} and bills ${cite('B', 1)}.`);
+  if (amt) { const c = purchaseCheck(amt, m);
+    return c.verdict === 'yes' ? say(`Yes, ${usd(amt)} fits: ${usd(c.freeAfterTaxesAndBills)} free after taxes and bills ${cite('B', 1)}, and you'd stay at ${usd(c.lowestBalanceAfterPurchase)} at your lowest.`)
+      : c.verdict === 'tight' ? say(`Tight: ${usd(amt)} fits your free money, but your lowest balance would drop to ${usd(c.lowestBalanceAfterPurchase)} on ${c.lowestDate} ${cite('B', 1)}. A smaller amount is safer.`)
+      : say(`Not yet: ${usd(amt)} is more than your ${usd(c.freeAfterTaxesAndBills)} free after taxes ${cite('D', 1)} and bills ${cite('B', 1)}.`); }
   return say(`You can spend ${usd(m.safe)} a day safely, and you're ${days} days ahead.`);
 }
 // Exécute l'action proposée (bornée côté app : jamais plus que l'épargne libre)
@@ -432,7 +442,7 @@ async function ask(q) {
   const typing = addMsg('bot', ''); typing.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
   let r;
   try {
-    const res = await fetch('/api/coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: HIST.slice(-8), context: coachContext() }) });
+    const res = await fetch('/api/coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: HIST.slice(-8), context: coachContext(q) }) });
     if (!res.ok) throw new Error(res.status);
     r = await res.json(); if (!r || typeof r.text !== 'string' || !r.text) throw new Error('empty');
     if (r.action && r.action.type === 'prevent') { const need = metrics(+$('late').value).need; r.action = need ? { ...r.action, amount: need, label: `Move ${usd(need)} to checking` } : NO_ACTION; }
