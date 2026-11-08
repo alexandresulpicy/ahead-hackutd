@@ -35,8 +35,8 @@ function demoData() { // miroir du compte Nessie : 90 jours de freelance, revenu
   return {
     checking: 900, savings: 2500, debt: 640, purchases,
     loans: [{ type: 'auto', amount: 6400, monthly_payment: 215, description: 'Auto loan - Honda Civic, 36 months left' }, { type: 'student', amount: 14500, monthly_payment: 120, description: 'Federal student loan' }],
-    deposits: [['2026-08-14', 2400, 'Wedding film - Client B'], ['2026-08-28', 1600, 'Brand video - Client C'], ['2026-09-22', 300, 'Photo edit - Client D'],
-      ['2026-10-09', 1500, 'Product shoot - Client E'], ['2026-10-27', 700, 'Reel editing - Client F'], ['2026-11-01', 1200, 'Client payment - video shoot']]
+    deposits: [['2026-08-14', 1200, 'Brand video - Elite Frame'], ['2026-08-28', 450, 'Tennis coaching'], ['2026-09-22', 120, 'Photo edit - Elite Frame'],
+      ['2026-10-09', 3800, 'Wedding film - Elite Frame'], ['2026-10-27', 1200, 'Product shoot - Elite Frame'], ['2026-11-01', 300, 'Tennis coaching']]
       .map(([transaction_date, amount, description]) => ({ transaction_date, amount, description })),
     bills: [{ nickname: 'Rent', payment_amount: 850, payment_date: '2026-11-15', recurring_date: 15 }, { nickname: 'Phone', payment_amount: 60, payment_date: '2026-11-20', recurring_date: 20 },
       { nickname: 'Software', payment_amount: 30, payment_date: '2026-12-05', recurring_date: 5 }],
