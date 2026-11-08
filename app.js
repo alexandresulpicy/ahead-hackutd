@@ -369,11 +369,12 @@ function ruleCoach(q) { // repli sans IA : court, varié selon l'état, même fo
   const tags = txTags(), cite = (t, n = 2) => tags.filter(x => x.tag[0] === t).slice(0, n).map(x => `[${x.tag}]`).join(' ');
   const days = m.capped ? '45+' : m.daysAhead, say = (text, action = NO_ACTION, suggestions) => ({ text, cites: (text.match(/\[([A-Z]\d+)\]/g) || []).map(s => s.slice(1, -1)), action,
     suggestions: suggestions || (m.riskE ? ['Fix it now', 'Why is this happening?', 'What if they pay later?'] : ['Can I afford a $200 lens?', 'How much for taxes?', 'When is my next payment?']) });
-  if (/overdraft|negative|run out|short|fix|prevent|cover/i.test(q))
+  if (/overdraft|negative|run out|short|fix|prevent|cover/i.test(q)) {
     const rent = (tags.find(t => /Rent/.test(t.text)) || {}).tag, bill = rent ? `[${rent}]` : cite('B', 1);
     return m.riskE ? say(`Yes: rent ${bill} lands before your late payment, so checking hits ${usd(m.minE.bal)} on ${nice(m.minE.date)}. Moving ${usd(m.need)} from savings covers it. Tap below.`,
       { type: 'prevent', from: 'savings', to: 'checking', amount: m.need, label: `Move ${usd(m.need)} to checking` }, ['Why that amount?', 'Is my tax jar safe?', 'When does the client pay?'])
       : say(`No. You're ${days} days ahead, even if a client pays a bit late ${cite('D')}.`);
+  }
   if (/tax/i.test(q)) return say(`Keep ${Math.round(PREFS.taxRate * 100)}% of every payment: ${usd(m.tax)} on your last income ${cite('D')}. Autopilot already sets it aside.`, NO_ACTION, ['Is that enough?', 'Am I going to overdraft?', 'Where does my money go?']);
   if (/(move|transfer|save|put)/i.test(q) && amt) {
     const toSav = /savings|save|put/i.test(q) && !/to checking/i.test(q), a2 = Math.min(amt, toSav ? Math.max(0, S.checking - PREFS.cushion) : freeSavings());
