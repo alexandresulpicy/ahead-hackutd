@@ -35,9 +35,24 @@ const SCHEMA = {
   },
 };
 
+// Protection des crédits (9/11) : seulement depuis le site Ahead, et nombre de questions limité par visiteur.
+const ORIGINS = /^https:\/\/(ahead-hackutd|steady-hackutd)(-[\w-]+)?\.vercel\.app$/;
+const HITS = new Map(), WINDOW = 10 * 60 * 1000, MAX_PER_WINDOW = 20;
+function tooMany(ip) {
+  const now = Date.now(), list = (HITS.get(ip) || []).filter(t => now - t < WINDOW);
+  list.push(now); HITS.set(ip, list);
+  if (HITS.size > 5000) HITS.clear();
+  return list.length > MAX_PER_WINDOW;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+  const origin = String(req.headers.origin || '');
+  if (!ORIGINS.test(origin)) return res.status(403).json({ error: 'forbidden' });
+  const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+  if (tooMany(ip)) return res.status(429).json({ error: 'slow down' });
   const { messages, context } = req.body || {};
+  if (JSON.stringify(context || {}).length > 12000) return res.status(413).json({ error: 'too large' });
   // Historique court et propre : alternance user/assistant, texte seulement, longueur bornée
   const hist = (Array.isArray(messages) ? messages : []).slice(-8)
     .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.length <= 600)
